@@ -1,6 +1,16 @@
 import { create } from 'zustand'
 
 export const usePetStore = create((set, get) => ({
+  current_user: JSON.parse(localStorage.getItem("tamagotchi_user")) || null,
+  loginUser: (userData) => {
+    localStorage.setItem("tamagotchi_user", JSON.stringify(userData));
+    set({ current_user: userData });
+  },
+  logoutUser: () => {
+    localStorage.removeItem("tamagotchi_user");
+    set({ current_user: null });
+  },
+
   pet: {
     name: "Billeterín",
     species: "piggy_bank",
