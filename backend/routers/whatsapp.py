@@ -52,6 +52,14 @@ async def receive_n8n_data(payload: N8nPayload, db: Session = Depends(get_db)):
         respuesta_ia = payload.message if payload.message else "No logré identificar el monto. ¿Podrías repetirme de cuánto fue?"
         return {"status": "success", "reply": respuesta_ia}
         
+    # Reparar usuarios viejos que no tienen su Tamagotchi base
+    if not user.tamagotchi:
+        nuevo_t = models.Tamagotchi(user_id=user.id)
+        db.add(nuevo_t)
+        db.commit()
+        db.refresh(nuevo_t)
+        user.tamagotchi = nuevo_t
+
     # 1. Lógica si es Gasto
     if payload.type == "expense":
         crud.create_expense(

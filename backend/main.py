@@ -7,6 +7,17 @@ from routers import whatsapp, budgets, auth
 # Crear tablas automáticamente al arrancar
 Base.metadata.create_all(bind=engine)
 
+from sqlalchemy import text
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN password VARCHAR;"))
+except Exception: pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE expenses ADD COLUMN shared_goal_id INTEGER REFERENCES shared_goals(id);"))
+except Exception: pass
+
 app = FastAPI(title="Finanzas Tamagotchi API")
 
 app.add_middleware(
