@@ -66,3 +66,12 @@ class SharedGoalParticipant(Base):
     id = Column(Integer, primary_key=True, index=True)
     shared_goal_id = Column(Integer, ForeignKey("shared_goals.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
+
+class FixedExpense(Base):
+    __tablename__ = "fixed_expenses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String)
+    amount = Column(Float)
+    day_of_month = Column(Integer, default=1)

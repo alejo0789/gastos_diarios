@@ -16,7 +16,8 @@ export const usePetStore = create((set, get) => ({
     general_current_spent: 450000,
     general_weekly_spent: 120000,
 
-    shared_goals: [] // Ahora las metas vienen de la Base de Datos
+    shared_goals: [], // Ahora las metas vienen de la Base de Datos
+    fixed_expenses: []
   },
   
   setPetData: (data) => set({ pet: data }),
@@ -24,6 +25,16 @@ export const usePetStore = create((set, get) => ({
   updateGeneralBudget: (limit) => set((state) => ({
       pet: { ...state.pet, general_budget_limit: limit }
   })),
+
+  fetchFixedExpenses: async (userId = 1) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/budgets/fixed-expenses/${userId}`);
+      if(res.ok) {
+         const data = await res.json();
+         set((state) => ({ pet: { ...state.pet, fixed_expenses: data } }));
+      }
+    } catch(e) {}
+  },
   
   fetchSharedGoals: async (userId = 1) => {
     try {

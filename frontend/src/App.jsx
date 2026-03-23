@@ -22,12 +22,31 @@ function App() {
   const [newGoalName, setNewGoalName] = useState("");
   const [newGoalTarget, setNewGoalTarget] = useState("");
 
+  const [newFixedName, setNewFixedName] = useState("");
+  const [newFixedAmount, setNewFixedAmount] = useState("");
+
   const [inviteModal, setInviteModal] = useState({ open: false, goalId: null });
   const [invitePhone, setInvitePhone] = useState("");
 
   useEffect(() => {
     usePetStore.getState().fetchSharedGoals(1);
+    usePetStore.getState().fetchFixedExpenses(1);
   }, []);
+
+  const submitFixedExpense = async () => {
+      if(!newFixedName || !newFixedAmount) return;
+      await fetch(`http://localhost:8000/api/budgets/fixed-expenses`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: 1, name: newFixedName, amount: parseFloat(newFixedAmount), day_of_month: 1 })
+      });
+      usePetStore.getState().fetchFixedExpenses(1);
+      setNewFixedName(""); setNewFixedAmount("");
+  }
+  
+  const removeFixedExpense = async (id) => {
+      await fetch(`http://localhost:8000/api/budgets/fixed-expenses/${id}`, { method: "DELETE" });
+      usePetStore.getState().fetchFixedExpenses(1);
+  }
 
   const submitEditGeneralBudget = () => {
     if (!newGeneralBudget) return;
@@ -470,27 +489,31 @@ function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '80vh', overflowY: 'auto' }}>
             <div>
               <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Planeamiento de Gastos Fijos</h3>
-              <p className="text-muted text-sm m-0">Pagos recurrentes que se restarán siempre fijo de tu presupuesto el 1ro del mes.</p>
+              <p className="text-muted text-sm m-0">Pagos recurrentes que se restarán siempre de tu presupuesto cada 1ro de mes.</p>
             </div>
             
             <div style={{background: '#f8fafc', padding: '12px', borderRadius:'12px', display:'flex', flexDirection:'column', gap:'10px'}}>
-               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:'14px', fontWeight:'500'}}>Arriendo Apartamento</span>
-                  <span style={{fontSize:'14px', fontWeight:'bold', color:'var(--danger)'}}>- $500.000</span>
-               </div>
-               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:'14px', fontWeight:'500'}}>Recibo de Internet</span>
-                  <span style={{fontSize:'14px', fontWeight:'bold', color:'var(--danger)'}}>- $85.000</span>
-               </div>
-               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:'14px', fontWeight:'500'}}>Membresía del Gimnasio</span>
-                  <span style={{fontSize:'14px', fontWeight:'bold', color:'var(--danger)'}}>- $60.000</span>
-               </div>
+               {pet.fixed_expenses?.map((g) => (
+                 <div key={g.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '6px'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                       <button onClick={() => removeFixedExpense(g.id)} className="btn-icon-tiny" title="Quitar gasto">
+                          <X size={14} color="var(--danger)" />
+                       </button>
+                       <span style={{fontSize:'14px', fontWeight:'500'}}>{g.name}</span>
+                    </div>
+                    <span style={{fontSize:'14px', fontWeight:'bold', color:'var(--danger)'}}>- ${g.amount.toLocaleString('es-CO')}</span>
+                 </div>
+               ))}
+               {(!pet.fixed_expenses || pet.fixed_expenses.length === 0) && (
+                 <p className="text-muted text-sm m-0 pt-1 pb-1">No has configurado gastos fijos aún.</p>
+               )}
             </div>
 
-            <button className="btn-micro" style={{justifyContent: 'center', padding: '10px', marginTop: '4px'}}>
-              <Plus size={16} /> Añadir Gasto Fijo
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+               <input type="text" placeholder="Ej. Arriendo" className="glass-input" style={{flex: 1, padding: '10px 14px'}} value={newFixedName} onChange={e => setNewFixedName(e.target.value)} />
+               <input type="text" inputMode="numeric" placeholder="$500.000" className="glass-input" style={{flex: 1, padding: '10px 14px'}} value={newFixedAmount ? Number(newFixedAmount).toLocaleString('es-CO') : ''} onChange={e => setNewFixedAmount(e.target.value.replace(/\D/g, ''))} />
+               <button className="btn-micro bg-blue" onClick={submitFixedExpense} style={{padding: '10px', height: '100%', borderRadius: '12px'}}><Plus size={16} color="var(--accent)" /></button>
+            </div>
             
             <div className="modal-actions mt-2">
               <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={() => setFixedExpensesModalOpen(false)}>Terminar</button>

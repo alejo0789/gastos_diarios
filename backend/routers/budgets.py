@@ -179,3 +179,29 @@ def remove_participant(goal_id: int, user_id: int, db: Session = Depends(get_db)
         db.delete(p)
         db.commit()
     return {"message": "Participante eliminado"}
+
+class FixedExpenseCreate(BaseModel):
+    user_id: int
+    name: str
+    amount: float
+    day_of_month: int = 1
+
+@router.get("/fixed-expenses/{user_id}")
+def get_fixed_expenses(user_id: int, db: Session = Depends(get_db)):
+    return db.query(models.FixedExpense).filter(models.FixedExpense.user_id == user_id).all()
+
+@router.post("/fixed-expenses")
+def create_fixed_expense(expense: FixedExpenseCreate, db: Session = Depends(get_db)):
+    db_exp = models.FixedExpense(**expense.dict())
+    db.add(db_exp)
+    db.commit()
+    db.refresh(db_exp)
+    return db_exp
+
+@router.delete("/fixed-expenses/{expense_id}")
+def delete_fixed_expense(expense_id: int, db: Session = Depends(get_db)):
+    db_exp = db.query(models.FixedExpense).filter(models.FixedExpense.id == expense_id).first()
+    if db_exp:
+        db.delete(db_exp)
+        db.commit()
+    return {"message": "Gasto fijo eliminado"}
