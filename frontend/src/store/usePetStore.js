@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+﻿import { create } from 'zustand'
 
 export const usePetStore = create((set, get) => ({
   current_user: JSON.parse(localStorage.getItem("tamagotchi_user")) || null,
@@ -38,7 +38,7 @@ export const usePetStore = create((set, get) => ({
 
   fetchFixedExpenses: async (userId = 1) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/budgets/fixed-expenses/${userId}`);
+      const res = await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/fixed-expenses/${userId}`);
       if(res.ok) {
          const data = await res.json();
          set((state) => ({ pet: { ...state.pet, fixed_expenses: data } }));
@@ -48,7 +48,7 @@ export const usePetStore = create((set, get) => ({
   
   fetchSummary: async (userId) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/budgets/summary/${userId}`);
+      const res = await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/summary/${userId}`);
       if(res.ok) {
          const sum = await res.json();
          set((state) => ({
@@ -67,7 +67,7 @@ export const usePetStore = create((set, get) => ({
   
   fetchSharedGoals: async (userId = 1) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/budgets/shared/${userId}`);
+      const res = await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/shared/${userId}`);
       const goals = await res.json();
       set((state) => ({
         pet: { ...state.pet, shared_goals: goals }

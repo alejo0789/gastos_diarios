@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { usePetStore } from './store/usePetStore'
 import { Wallet, Target, Sparkles, Plus, Minus, Trash2, Edit2, X, Menu, User, Calendar, LogOut } from 'lucide-react'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
@@ -47,7 +47,7 @@ function App() {
      const body = isLoginView ? {phone_number: authPhone, password: authPassword} : {phone_number: authPhone, password: authPassword, name: authName};
      
      try {
-       const req = await fetch(`http://localhost:8000${endpoint}`, {
+       const req = await fetch(`https://gastosdiariosbackend-production.up.railway.app${endpoint}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body)
        });
@@ -57,12 +57,12 @@ function App() {
        }
        const data = await req.json();
        usePetStore.getState().loginUser(data);
-     } catch(e) { }
+     } catch(e) { alert("Error conectando con el servidor en la nube. Revisa tu internet o avisa al administrador."); }
   }
 
   const submitFixedExpense = async () => {
       if(!newFixedName || !newFixedAmount) return;
-      await fetch(`http://localhost:8000/api/budgets/fixed-expenses`, {
+      await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/fixed-expenses`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user_id: current_user.user_id, name: newFixedName, amount: parseFloat(newFixedAmount), day_of_month: 1 })
       });
@@ -71,14 +71,14 @@ function App() {
   }
   
   const removeFixedExpense = async (id) => {
-      await fetch(`http://localhost:8000/api/budgets/fixed-expenses/${id}`, { method: "DELETE" });
+      await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/fixed-expenses/${id}`, { method: "DELETE" });
       usePetStore.getState().fetchFixedExpenses(current_user.user_id);
   }
 
   const submitEditGeneralBudget = async () => {
     if (!newGeneralBudget) return;
     try {
-       await fetch(`http://localhost:8000/api/budgets/limit/${current_user.user_id}`, {
+       await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/limit/${current_user.user_id}`, {
           method: "PUT", headers: {"Content-Type": "application/json"},
           body: JSON.stringify({limit: parseFloat(newGeneralBudget)})
        });
@@ -98,7 +98,7 @@ function App() {
   const submitCreateGoal = async () => {
     if (!newGoalName || !newGoalTarget) return;
     try {
-      await fetch(`http://localhost:8000/api/budgets/shared`, {
+      await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/shared`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newGoalName, target_amount: parseFloat(newGoalTarget), creator_user_id: current_user.user_id })
@@ -114,7 +114,7 @@ function App() {
   const submitEditGoal = async () => {
     if (!newGoalName || !newGoalTarget) return;
     try {
-      await fetch(`http://localhost:8000/api/budgets/shared/${editingGoalId}`, {
+      await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/shared/${editingGoalId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newGoalName, target_amount: parseFloat(newGoalTarget), creator_user_id: current_user.user_id })
@@ -131,7 +131,7 @@ function App() {
   const handleDeleteGoal = async (gId) => {
     if(!window.confirm("¿Seguro que deseas eliminar este presupuesto permanentemente? Los ahorros no se perderán, solo la meta.")) return;
     try {
-      await fetch(`http://localhost:8000/api/budgets/shared/${gId}`, { method: "DELETE" });
+      await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/shared/${gId}`, { method: "DELETE" });
       usePetStore.getState().fetchSharedGoals(current_user.user_id);
     } catch(e) {}
   }
@@ -139,7 +139,7 @@ function App() {
   const handleRemoveParticipant = async (gId, uId, uName) => {
     if(!window.confirm(`¿Quitar a ${uName} de la meta? Así ya no podrá aportar desde su celular.`)) return;
     try {
-      await fetch(`http://localhost:8000/api/budgets/shared/${gId}/participants/${uId}`, { method: "DELETE" });
+      await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/shared/${gId}/participants/${uId}`, { method: "DELETE" });
       usePetStore.getState().fetchSharedGoals(current_user.user_id);
     } catch(e) {}
   }
@@ -171,7 +171,7 @@ function App() {
     if(!phone) return;
 
     try {
-      const req = await fetch(`http://localhost:8000/api/budgets/shared/${gId}/participants`, {
+      const req = await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/shared/${gId}/participants`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier: phone })
       });
