@@ -19,12 +19,24 @@ def get_or_create_user(db: Session, phone_number: str, name: str = None):
     
     return new_user
 
-def create_expense(db: Session, user_id: int, amount: float, category: str, description: str = None):
-    db_expense = models.Expense(user_id=user_id, amount=amount, category=category, description=description)
+def create_expense(db: Session, user_id: int, amount: float, category: str, description: str = None, shared_goal_id: int = None):
+    db_expense = models.Expense(
+        user_id=user_id, 
+        amount=amount, 
+        category=category, 
+        description=description,
+        shared_goal_id=shared_goal_id
+    )
     db.add(db_expense)
     db.commit()
     db.refresh(db_expense)
     return db_expense
+
+def get_shared_goal_by_name(db: Session, name: str):
+    if not name: 
+        return None
+    # Usamos ilike para buscar ignorando mayúsculas y encontrando coincidencias parciales (ej: "cancun" -> "Viaje a Cancun")
+    return db.query(models.SharedGoal).filter(models.SharedGoal.name.ilike(f"%{name}%")).first()
 
 from datetime import datetime
 from sqlalchemy import func

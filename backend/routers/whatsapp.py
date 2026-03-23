@@ -27,71 +27,84 @@ async def verify_webhook(request: Request):
     
     raise HTTPException(status_code=403, detail="Token no válido")
 
-class WhatsAppPayload(BaseModel):
+from typing import Optional
+
+class N8nPayload(BaseModel):
     phone_number: str
-    message: str
     sender_name: str = "Usuario"
+    type: str # Valores: 'expense', 'income', 'goal_contribution', o 'chat'
+    amount: Optional[float] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    goal_name: Optional[str] = None # Identifica a qué meta va el ahorro
+    message: Optional[str] = None # Mensaje de aclaración que el LLM genera
 
-# Reemplazar con la URL real de n8n en el futuro
-N8N_WEBHOOK_URL = "http://localhost:5678/webhook/finanzas-ai"
-
-async def process_message_with_ai(message: str):
+@router.post("/interact")
+async def receive_n8n_data(payload: N8nPayload, db: Session = Depends(get_db)):
     """
-    Se comunica con n8n. n8n recibe el texto, usa IA y devuelve JSON.
-    Por ahora lo simulamos.
+    Este webhook es llamado por N8N después de que su IA
+    analizó el mensaje de WhatsApp.
     """
-    try:
-        # TODO: Descomentar esto cuando n8n esté activo
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.post(N8N_WEBHOOK_URL, json={"text": message})
-        #     return response.json()
-        
-        # MOCK SIMULADO para poder avanzar con la programación:
-        return {
-            "amount": 15000.0,
-            "category": "comidas",
-            "type": "expense",
-            "description": message
-        }
-    except Exception as e:
-        print(f"Error AI: {e}")
-        return None
-
-@router.post("/")
-async def receive_message(payload: WhatsAppPayload, db: Session = Depends(get_db)):
-    # 1. Identificar o crear cuenta
     user = crud.get_or_create_user(db, phone_number=payload.phone_number, name=payload.sender_name)
     
-    # 2. Enviar a n8n para análisis NLP
-    ai_response = await process_message_with_ai(payload.message)
-    
-    if not ai_response:
-        return {"status": "error", "reply": "La IA no pudo procesar tu mensaje."}
-    
-    # 3. Guardar gasto y actualizar Mascota
-    if ai_response.get("type") == "expense":
+    # 0. Si el LLM solo está charlando o pide aclaración porque faltan datos
+    if payload.type == "chat" or payload.amount is None:
+        respuesta_ia = payload.message if payload.message else "No logré identificar el monto. ¿Podrías repetirme de cuánto fue?"
+        return {"status": "success", "reply": respuesta_ia}
+        
+    # 1. Lógica si es Gasto
+    if payload.type == "expense":
         crud.create_expense(
             db=db, 
             user_id=user.id, 
-            amount=ai_response["amount"], 
-            category=ai_response["category"],
-            description=ai_response["description"]
+            amount=payload.amount, 
+            category=payload.category,
+            description=payload.description
         )
-        
         updated_pet = crud.update_tamagotchi_health(
             db=db, 
             tamagotchi_id=user.tamagotchi.id, 
             user_id=user.id,
-            expense_amount=ai_response["amount"],
-            expense_category=ai_response["category"]
+            expense_amount=payload.amount,
+            expense_category=payload.category
         )
-        
-        # 4. Formatear la respuesta que el backend le devolvería a Evolution API/WhatsApp
-        reply = f"✅ Registré tu gasto de ${ai_response['amount']} en {ai_response['category']}.\n"
-        reply += f"Tu mascota '{updated_pet.name}' ahora tiene {updated_pet.health}❤️ y {updated_pet.xp}⭐ de XP."
-        
-        # TODO: Enviar HTTP POST a Evolution API para despachar el mensaje al celular
-        
+        reply = f"✅ Registrado gasto de ${payload.amount} en {payload.category}.\n"
+        reply += f"Tu alcancía '{updated_pet.name}' tiene {updated_pet.health}❤️ y {updated_pet.xp}⭐ de XP."
         return {"status": "success", "reply": reply}
+
+    # 2. Lógica si es Ingreso general
+    elif payload.type == "income":
+        return {"status": "success", "reply": f"¡Genial! Ingreso de ${payload.amount} registrado."}
+
+    # 3. Lógica si es Ahorro para una Meta / Viaje
+    elif payload.type == "goal_contribution":
+        nombre_meta = payload.goal_name if payload.goal_name else ""
+        goal = crud.get_shared_goal_by_name(db, nombre_meta)
+        
+        if goal:
+            # Registrar el aporte de dinero dentro de los movimientos de la meta (shared_goal_id)
+            crud.create_expense(
+                db=db, 
+                user_id=user.id, 
+                amount=payload.amount, 
+                category="Ahorro Compartido/Meta",
+                description=payload.description if payload.description else f"Aporte vía IA para {goal.name}",
+                shared_goal_id=goal.id
+            )
+            
+            # Recompensar fuertemente a la mascota por el buen hábito
+            t = user.tamagotchi
+            t.xp += 25
+            t.happiness = min(100, t.happiness + 10)
+            db.commit()
+            db.refresh(t)
+            
+            reply = f"🎯 ¡Excelente hábito! Acabo de sumar ${payload.amount} a tu meta oficial: '{goal.name}'.\n"
+            reply += f"¡A tu alcancía le enorgullece verte ahorrar! 🐽💖 (Ganó 25 XP, Total nivelando: {t.xp}⭐)"
+            return {"status": "success", "reply": reply}
+        else:
+            # Validar si el agente inventó un nombre o si fue mal ingresado
+            reply = f"🔎 Ups.. no encontré ninguna meta o presupuesto llamado '{nombre_meta}' en tu cuenta."
+            return {"status": "success", "reply": reply}
 
     return {"status": "ignored"}
