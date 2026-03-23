@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePetStore } from './store/usePetStore'
 import { Wallet, Target, Sparkles, Plus, Minus, Trash2, Edit2, X, Menu, User, Calendar, LogOut } from 'lucide-react'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
@@ -37,6 +37,7 @@ function App() {
     if (current_user) {
        usePetStore.getState().fetchSharedGoals(current_user.user_id);
        usePetStore.getState().fetchFixedExpenses(current_user.user_id);
+       usePetStore.getState().fetchSummary(current_user.user_id);
     }
   }, [current_user]);
 
@@ -74,11 +75,17 @@ function App() {
       usePetStore.getState().fetchFixedExpenses(current_user.user_id);
   }
 
-  const submitEditGeneralBudget = () => {
+  const submitEditGeneralBudget = async () => {
     if (!newGeneralBudget) return;
-    updateGeneralBudget(parseInt(newGeneralBudget));
-    setEditGeneralBudgetModal(false);
-    setNewGeneralBudget("");
+    try {
+       await fetch(`http://localhost:8000/api/budgets/limit/${current_user.user_id}`, {
+          method: "PUT", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({limit: parseFloat(newGeneralBudget)})
+       });
+       usePetStore.getState().updateGeneralBudget(parseInt(newGeneralBudget));
+       setEditGeneralBudgetModal(false);
+       setNewGeneralBudget("");
+    } catch(e) {}
   }
 
   const openEditModal = (g) => {

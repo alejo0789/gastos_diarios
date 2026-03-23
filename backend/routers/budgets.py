@@ -205,3 +205,32 @@ def delete_fixed_expense(expense_id: int, db: Session = Depends(get_db)):
         db.delete(db_exp)
         db.commit()
     return {"message": "Gasto fijo eliminado"}
+
+@router.get("/summary/{user_id}")
+def get_user_summary(user_id: int, db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    total_income = db.query(func.sum(models.Income.amount)).filter(models.Income.user_id == user_id).scalar() or 0.0
+    total_expenses_var = db.query(func.sum(models.Expense.amount)).filter(models.Expense.user_id == user_id, models.Expense.shared_goal_id == None).scalar() or 0.0
+    total_fixed = db.query(func.sum(models.FixedExpense.amount)).filter(models.FixedExpense.user_id == user_id).scalar() or 0.0
+    total_expenses = total_expenses_var + total_fixed
+    total_savings = db.query(func.sum(models.Expense.amount)).filter(models.Expense.user_id == user_id, models.Expense.shared_goal_id != None).scalar() or 0.0
+    
+    budget = db.query(models.Budget).filter(models.Budget.user_id == user_id, models.Budget.category == "General").order_by(models.Budget.id.desc()).first()
+    budget_limit = budget.limit_amount if budget else 1000000.0
+
+    return {"income": total_income, "expenses": total_expenses, "savings": total_savings, "budget_limit": budget_limit}
+
+class BudgetLimitUpdate(BaseModel):
+    limit: float
+
+@router.put("/limit/{user_id}")
+def update_budget_limit(user_id: int, data: BudgetLimitUpdate, db: Session = Depends(get_db)):
+    budget = db.query(models.Budget).filter(models.Budget.user_id == user_id, models.Budget.category == "General").first()
+    from datetime import datetime
+    if budget:
+        budget.limit_amount = data.limit
+    else:
+        budget = models.Budget(user_id=user_id, category="General", limit_amount=data.limit, month=datetime.utcnow().month, year=datetime.utcnow().year)
+        db.add(budget)
+    db.commit()
+    return {"message": "Success"}

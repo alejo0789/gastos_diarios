@@ -46,6 +46,25 @@ export const usePetStore = create((set, get) => ({
     } catch(e) {}
   },
   
+  fetchSummary: async (userId) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/budgets/summary/${userId}`);
+      if(res.ok) {
+         const sum = await res.json();
+         set((state) => ({
+            pet: {
+               ...state.pet,
+               income: sum.income,
+               general_current_spent: sum.expenses,
+               savings: sum.savings,
+               general_budget_limit: sum.budget_limit,
+               general_weekly_spent: sum.expenses / 4
+            }
+         }));
+      }
+    } catch(e) {}
+  },
+  
   fetchSharedGoals: async (userId = 1) => {
     try {
       const res = await fetch(`http://localhost:8000/api/budgets/shared/${userId}`);

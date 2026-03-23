@@ -76,3 +76,12 @@ class FixedExpense(Base):
     name = Column(String)
     amount = Column(Float)
     day_of_month = Column(Integer, default=1)
+
+class Income(Base):
+    __tablename__ = "incomes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    amount = Column(Float)
+    description = Column(String, nullable=True)
+    date = Column(DateTime, default=datetime.utcnow)

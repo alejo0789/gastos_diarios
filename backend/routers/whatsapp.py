@@ -74,7 +74,10 @@ async def receive_n8n_data(payload: N8nPayload, db: Session = Depends(get_db)):
 
     # 2. Lógica si es Ingreso general
     elif payload.type == "income":
-        return {"status": "success", "reply": f"¡Genial! Ingreso de ${payload.amount} registrado."}
+        db_income = models.Income(user_id=user.id, amount=payload.amount, description=payload.description)
+        db.add(db_income)
+        db.commit()
+        return {"status": "success", "reply": f"¡Genial! Ingreso de ${payload.amount} registrado en tu Billeterín seguro."}
 
     # 3. Lógica si es Ahorro para una Meta / Viaje
     elif payload.type == "goal_contribution":
