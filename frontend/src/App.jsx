@@ -1,5 +1,6 @@
 import { usePetStore } from './store/usePetStore'
 import { Wallet, Target, Sparkles, Plus, Minus } from 'lucide-react'
+import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import './App.css'
 
 function App() {
@@ -27,7 +28,13 @@ function App() {
           </div>
         </div>
         
-        <img src={isSad ? "/sad.png" : "/happy.png"} alt="Pet" className="pet-avatar" />
+        {isSad ? (
+           <img src="/sad.png" alt="Pet triste" className="pet-avatar" />
+        ) : (
+           <div className="pet-avatar-lottie" style={{ width: '150px', height: '150px', margin: '0.5rem 0 1rem 0' }}>
+             <DotLottieReact src="/happy.lottie" loop autoplay />
+           </div>
+        )}
         <h2 className="pet-name">{pet.name}</h2>
         
         <div className="health-container">

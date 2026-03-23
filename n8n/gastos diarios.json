@@ -1,0 +1,560 @@
+{
+  "name": "gastos diarios",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const entry = $input.first().json;\n\n// Estructura REAL que entrega el trigger de n8n\nconst from = entry.messages?.[0]?.from || '';\nconst phoneNumberId = entry.metadata?.phone_number_id || '';\nconst contactName = entry.contacts?.[0]?.profile?.name || '';\n\nconst msg = entry.messages?.[0];\nconst msgType = msg?.type || 'text';\n\nlet textContent = '';\nlet mediaId = '';\nlet mediaUrl = '';\n\nif (msgType === 'text') {\n  textContent = msg?.text?.body || '';\n} else if (msgType === 'image') {\n  mediaId = msg?.image?.id || '';\n  mediaUrl = msg?.image?.url || '';          // ← YA viene la URL directa!\n  textContent = msg?.image?.caption || '[IMAGEN_ENVIADA]';\n} else if (msgType === 'document') {\n  mediaId = msg?.document?.id || '';\n  textContent = '[DOCUMENTO_ENVIADO]';\n}\n\nreturn [{\n  json: {\n    from,\n    phoneNumberId,\n    contactName,    // ← BONUS: nombre del contacto de WhatsApp\n    msgType,\n    textContent,\n    mediaId,\n    mediaUrl,       // ← URL directa disponible\n    hasImage: msgType === 'image'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        304
+      ],
+      "id": "31ac7590-81fb-44a3-add8-d25d7d35bc37",
+      "name": "Parsear Mensaje"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://registrotiketesgane-production.up.railway.app/whatsapp/interact",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefono",
+              "value": "={{ $('Parsear Mensaje').item.json.from }}"
+            },
+            {
+              "name": "texto",
+              "value": "={{ $('Parsear Mensaje').item.json.textContent }}"
+            },
+            {
+              "name": "media_url",
+              "value": "={{ $('HTTP Request3').isExecuted ? $('HTTP Request3').first().json.url : null }}"
+            },
+            {
+              "name": "media_type",
+              "value": "image"
+            },
+            {
+              "name": "extracted_cedula",
+              "value": "={{ $('Parsear IA').isExecuted ? $('Parsear IA').item.json.extracted_cedula :null}}"
+            },
+            {
+              "name": "extracted_nombre",
+              "value": "={{ $('Parsear IA').isExecuted ? $('Parsear IA').item.json.extracted_nombre :null}}"
+            },
+            {
+              "name": "tipo_documento_detectado",
+              "value": "={{ $('Parsear IA').isExecuted ? $('Parsear IA').item.json.tipo_documento_detectado :null}}"
+            },
+            {
+              "name": "extracted_id_tra",
+              "value": "={{ $('Parsear IA').isExecuted ? $('Parsear IA').item.json.extracted_id_tra :null}}"
+            },
+            {
+              "name": "extracted_identificacion",
+              "value": "={{ $('Parsear IA').isExecuted ? $('Parsear IA').item.json.extracted_identificacion :null}}"
+            },
+            {
+              "name": "extracted_valor",
+              "value": "={{ $('Parsear IA').isExecuted ? $('Parsear IA').item.json.extracted_valor :null}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        800,
+        256
+      ],
+      "id": "a1b97b21-f099-4cca-80e9-4bfa23e6950a",
+      "name": "Orquestador Backend"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $('Parsear Mensaje').first().json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $('Parsear Mensaje').item.json.from }}",
+        "textBody": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "previewUrl": false
+        }
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        256
+      ],
+      "id": "6e9b4cd0-1ed6-44b0-a89c-cf85b94a8672",
+      "name": "Enviar Respuesta2",
+      "webhookId": "f3619a6e-d0b3-4c28-aca4-99e29d828d88"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.mediaUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer EAAJYO0zVZB9IBQ1iqQSmHa1CwGSA470NaAjd5BB4hflyKFLgrThneW79ZBZAL4RmnzQJpMVpNryb19dm5Noz1NEZCoG5iUcOy8684LM7UqXEIBZCJrrNANoCt8bdIRgMi9NZBhycLEnKSJ7qfzknavfSh8plVtSYfXgJJRQOPAMm58MVlfshZAJLG5WGGBgZACsgnQZDZD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -800,
+        48
+      ],
+      "id": "170ea75a-9b05-498a-a680-ef320626c607",
+      "name": "1. Obtener URL de Imagen1",
+      "notes": "Llama a la API de Meta para obtener la URL temporal de la imagen. El media_id viene del mensaje."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convertir imagen binaria a base64 para enviarsela a OpenAI Vision\nconst binaryData = $input.first().binary?.data;\n\nif (!binaryData) {\n  throw new Error('No se recibió imagen binaria');\n}\n\n// n8n guarda el binario, lo pasamos como referencia\nconst base64Image = binaryData.data; // Ya viene en base64 desde n8n\nconst mimeType = binaryData.mimeType || 'image/jpeg';\n\n// Recuperar datos del mensaje original (de 2 nodos atrás)\n// Los pasamos como contexto para el agente\nreturn [{\n  json: {\n    base64Image,\n    mimeType,\n    imageDataUrl: `data:${mimeType};base64,${base64Image}`\n  },\n  binary: $input.first().binary\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        32
+      ],
+      "id": "f1fa6f6b-e7c5-4cd1-b173-6fb540e4e904",
+      "name": "3. Preparar Base"
+    },
+    {
+      "parameters": {
+        "jsCode": "const binary = $input.first().binary?.data;\nconst json = $input.first().json;\n\nreturn [{\n  json: {\n    ...json,\n    // Guardar el binario como base64 en el JSON para no perderlo\n    imagenBase64: binary?.data || '',\n    imagenMimeType: binary?.mimeType || 'image/jpeg',\n    imagenFileName: binary?.fileName || 'colilla.jpg'\n  }\n  // NO pasar binary aquí, el agente no lo necesita\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        16
+      ],
+      "id": "07a033a2-dba4-4bbe-b8ee-7b846272fecf",
+      "name": "Code in JavaScript5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tomar el binario DIRECTO del nodo que descargó la imagen\nconst binary = $('1. Obtener URL de Imagen1').first().binary?.data;\n\nif (!binary) {\n  throw new Error('No se encontró binario en el nodo de descarga');\n}\n\nreturn [{\n  json: $input.first().json,\n  binary: {\n    data: binary  // binario original sin tocar\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        16
+      ],
+      "id": "aab8c079-ce9f-4af7-a394-506129a79da9",
+      "name": "Code in JavaScript6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://registrotiketesgane-production.up.railway.app/upload-receipt?sorteo_nombre=WhatsApp",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "key",
+              "value": "=1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -128,
+        16
+      ],
+      "id": "487293df-f5a4-4ada-8a41-2bb8c2399eb9",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tomar el binario DIRECTO del nodo que descargó la imagen\nconst binary = $('1. Obtener URL de Imagen1').first().binary?.data;\n\nif (!binary) {\n  throw new Error('No se encontró binario en el nodo de descarga');\n}\n\nreturn [{\n  json: $input.first().json,\n  binary: {\n    data: binary  // binario original sin tocar\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "16bc48dc-588f-41d0-9a35-328905b51e30",
+      "name": "Code in JavaScript7"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        624,
+        256
+      ],
+      "id": "630dc416-1f39-4866-a491-961020454f86",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "check-image",
+              "leftValue": "={{ $json.hasImage }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        256
+      ],
+      "id": "d1d608b3-e773-4d7d-ab2b-70b699a695f1",
+      "name": "¿Es Imagen?2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $binary.data.fileName }}",
+        "options": {
+          "systemMessage": "=Eres un experto en extracción de datos de documentos de identidad de Colombia (Cédula de Ciudadanía) y colillas de sorteos de lotería.\n\nTu objetivo es analizar la imagen proporcionada y extraer la información real en un formato JSON estricto.\n\n### DOCUMENTOS A PROCESAR:\n1. CÉDULA DE CIUDADANÍA:\n   - Extrae el número de cédula (sin puntos ni letras).\n   - Extrae el nombre completo de la persona.\n\n2. COLILLA DE SORTEO - HAY 2 POSIBLES FORMATOS:\n   FORMATO 1 - BETPLAY: La imagen en la parte superior dice \"CORREDOR EMPRESARIAL S.A\".\n       Extrae los siguientes datos: ID.TRA, IDENTIFICACION y VALOR RECARGA.\n   FORMATO 2 - CHANCE: Inicia con \"V:XXX***\".\n       De ese formato extrae únicamente: ID.TRA y TOTAL (el total está al final, ejemplo \"Total$6000\" → extraes \"6000\").\n   3. si es otro tipo de formato debes marcarlo como invalido.\n### REGLAS DE SALIDA:\n- Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional.\n- Si no encuentras un dato, ponlo como null.\n- Limpia los números eliminando puntos, comas o espacios.\n\n### ESTRUCTURA DEL JSON (usa EXACTAMENTE estos nombres de campo):\n{\n  \"extracted_cedula\": \"solo_numeros_o_null\",\n  \"extracted_nombre\": \"nombre_completo_o_null\",\n  \"tipo_documento_detectado\": \"cedula\" | \"betplay\" | \"chance\" | \"invalido\",\n  \"extracted_id_tra\": \"numero_del_id_tra_o_null\",\n  \"extracted_identificacion\": \"identificacion_o_null\",\n  \"extracted_valor\": \"valor_total_o_null\"\n}\n\nReglas:\n\nNunca inventar informacion. no procesar otros formatos de tiekts diferentes a betplay y chance\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        160,
+        0
+      ],
+      "id": "eda0b66e-5087-4d1e-b27b-f70f25d65f3a",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        160
+      ],
+      "id": "707d2cec-ae94-4d98-9be2-be2563d56966",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "y7qmoFO6eSWGsnbC",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = $input.first().json.output || \"\";\n\n// 1. Limpiar bloques de código Markdown ```json ... ```\noutput = output.replace(/```json/g, \"\").replace(/```/g, \"\").trim();\n\n// 2. Extraer el JSON real\nlet jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n\nif (!jsonMatch) {\n  return [{ \n    json: { \n      extracted_cedula: null, \n      extracted_nombre: null, \n      tipo_documento_detectado: null,\n      extracted_id_tra: null,\n      extracted_identificacion: null,\n      extracted_valor: null,\n      error: \"No se encontró JSON en la respuesta del agente\" \n    } \n  }];\n}\n\ntry {\n  let data = JSON.parse(jsonMatch[0]);\n  \n  return [{\n    json: {\n      extracted_cedula:          data.extracted_cedula         || null,\n      extracted_nombre:          data.extracted_nombre         || null,\n      tipo_documento_detectado:  data.tipo_documento_detectado || null,\n      extracted_id_tra:          data.extracted_id_tra         || null,\n      extracted_identificacion:  data.extracted_identificacion || null,\n      extracted_valor:           data.extracted_valor          || null\n    }\n  }];\n\n} catch (e) {\n  return [{ \n    json: { \n      extracted_cedula: null, \n      extracted_nombre: null, \n      tipo_documento_detectado: null,\n      extracted_id_tra: null,\n      extracted_identificacion: null,\n      extracted_valor: null,\n      error: \"JSON inválido: \" + e.message \n    } \n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        0
+      ],
+      "id": "595fb139-aa9d-4e96-b825-5439c379a4a3",
+      "name": "Parsear IA"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "d639c44d-24f2-4410-a3d4-26b44b8ac6c3",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1584,
+        304
+      ],
+      "id": "5205e8f1-3788-4cbb-8226-b6d94def4cd7",
+      "name": "Webhook",
+      "webhookId": "d639c44d-24f2-4410-a3d4-26b44b8ac6c3"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $binary.data.fileName }}",
+        "options": {
+          "systemMessage": "=Eres un experto en extracción de datos de documentos de identidad de Colombia (Cédula de Ciudadanía) y colillas de sorteos de lotería.\n\nTu objetivo es analizar la imagen proporcionada y extraer la información real en un formato JSON estricto.\n\n### DOCUMENTOS A PROCESAR:\n1. CÉDULA DE CIUDADANÍA:\n   - Extrae el número de cédula (sin puntos ni letras).\n   - Extrae el nombre completo de la persona.\n\n2. COLILLA DE SORTEO - HAY 2 POSIBLES FORMATOS:\n   FORMATO 1 - BETPLAY: La imagen en la parte superior dice \"CORREDOR EMPRESARIAL S.A\".\n       Extrae los siguientes datos: ID.TRA, IDENTIFICACION y VALOR RECARGA.\n   FORMATO 2 - CHANCE: Inicia con \"V:XXX***\".\n       De ese formato extrae únicamente: ID.TRA y TOTAL (el total está al final, ejemplo \"Total$6000\" → extraes \"6000\").\n   3. si es otro tipo de formato debes marcarlo como invalido.\n### REGLAS DE SALIDA:\n- Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional.\n- Si no encuentras un dato, ponlo como null.\n- Limpia los números eliminando puntos, comas o espacios.\n\n### ESTRUCTURA DEL JSON (usa EXACTAMENTE estos nombres de campo):\n{\n  \"extracted_cedula\": \"solo_numeros_o_null\",\n  \"extracted_nombre\": \"nombre_completo_o_null\",\n  \"tipo_documento_detectado\": \"cedula\" | \"betplay\" | \"chance\" | \"invalido\",\n  \"extracted_id_tra\": \"numero_del_id_tra_o_null\",\n  \"extracted_identificacion\": \"identificacion_o_null\",\n  \"extracted_valor\": \"valor_total_o_null\"\n}\n\nReglas:\n\nNunca inventar informacion. no procesar otros formatos de tiekts diferentes a betplay y chance\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -304,
+        304
+      ],
+      "id": "1290fdd1-f96f-49ac-97f9-1b33246e548a",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -336,
+        496
+      ],
+      "id": "6e691778-cb66-4222-b336-0bef0c72ce96",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "y7qmoFO6eSWGsnbC",
+          "name": "OpenAi account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Parsear Mensaje": {
+      "main": [
+        [
+          {
+            "node": "¿Es Imagen?2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orquestador Backend": {
+      "main": [
+        [
+          {
+            "node": "Enviar Respuesta2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Obtener URL de Imagen1": {
+      "main": [
+        [
+          {
+            "node": "3. Preparar Base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Preparar Base": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript5": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript6": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript7": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Orquestador Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Imagen?2": {
+      "main": [
+        [
+          {
+            "node": "1. Obtener URL de Imagen1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parsear IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear IA": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parsear Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6ede1990-4754-4adb-9700-35e51123c810",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9d3dca8d6aa02f6d8b93cec87b44e118adc566c8aef43c67bbf89a4968e8773f"
+  },
+  "id": "gCugD6690xlcPZsC",
+  "tags": []
+}
