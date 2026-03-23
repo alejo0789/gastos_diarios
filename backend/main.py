@@ -17,9 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Registrar routers
 app.include_router(whatsapp.router)
 app.include_router(budgets.router)
+app.include_router(auth.router)
 
 @app.get("/")
 def read_root():

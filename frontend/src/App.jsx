@@ -509,10 +509,16 @@ function App() {
                )}
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-               <input type="text" placeholder="Ej. Arriendo" className="glass-input" style={{flex: 1, padding: '10px 14px'}} value={newFixedName} onChange={e => setNewFixedName(e.target.value)} />
-               <input type="text" inputMode="numeric" placeholder="$500.000" className="glass-input" style={{flex: 1, padding: '10px 14px'}} value={newFixedAmount ? Number(newFixedAmount).toLocaleString('es-CO') : ''} onChange={e => setNewFixedAmount(e.target.value.replace(/\D/g, ''))} />
-               <button className="btn-micro bg-blue" onClick={submitFixedExpense} style={{padding: '10px', height: '100%', borderRadius: '12px'}}><Plus size={16} color="var(--accent)" /></button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+               <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+                 Nuevo Concepto Fijo
+                 <input type="text" placeholder="📝 Ej. Suscripción a Netflix" className="glass-input" style={{padding: '10px 14px'}} value={newFixedName} onChange={e => setNewFixedName(e.target.value)} />
+               </label>
+               <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+                 Costo Mensual
+                 <input type="text" inputMode="numeric" placeholder="💰 Ej. 25.000" className="glass-input" style={{padding: '10px 14px'}} value={newFixedAmount ? Number(newFixedAmount).toLocaleString('es-CO') : ''} onChange={e => setNewFixedAmount(e.target.value.replace(/\D/g, ''))} />
+               </label>
+               <button className="btn-micro btn-income mt-2" onClick={submitFixedExpense} style={{width: '100%', padding: '12px', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', border: '1px solid #bbf7d0', fontWeight: '600', cursor: 'pointer'}}><Plus size={18} color="var(--success)" /> Confirmar Gasto Fijo</button>
             </div>
             
             <div className="modal-actions mt-2">

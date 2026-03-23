@@ -9,6 +9,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     phone_number = Column(String, unique=True, index=True) # Número de WhatsApp
     name = Column(String, nullable=True)
+    password = Column(String, nullable=True)
     
     tamagotchi = relationship("Tamagotchi", back_populates="owner", uselist=False)
     expenses = relationship("Expense", back_populates="user")
