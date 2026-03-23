@@ -28,24 +28,50 @@ function App() {
   const [inviteModal, setInviteModal] = useState({ open: false, goalId: null });
   const [invitePhone, setInvitePhone] = useState("");
 
+  const [isLoginView, setIsLoginView] = useState(true);
+  const [authPhone, setAuthPhone] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+
   useEffect(() => {
-    usePetStore.getState().fetchSharedGoals(1);
-    usePetStore.getState().fetchFixedExpenses(1);
-  }, []);
+    if (pet.current_user) {
+       usePetStore.getState().fetchSharedGoals(pet.current_user.user_id);
+       usePetStore.getState().fetchFixedExpenses(pet.current_user.user_id);
+    }
+  }, [pet.current_user]);
+
+  const submitAuth = async () => {
+     if(!authPhone || !authPassword) return;
+     const endpoint = isLoginView ? "/api/auth/login" : "/api/auth/register";
+     const body = isLoginView ? {phone_number: authPhone, password: authPassword} : {phone_number: authPhone, password: authPassword, name: authName};
+     
+     try {
+       const req = await fetch(`http://localhost:8000${endpoint}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+       });
+       if(req.status === 400 || req.status === 401) { 
+           const err = await req.json();
+           alert(err.detail); return; 
+       }
+       const data = await req.json();
+       usePetStore.getState().loginUser(data);
+     } catch(e) { }
+  }
 
   const submitFixedExpense = async () => {
       if(!newFixedName || !newFixedAmount) return;
       await fetch(`http://localhost:8000/api/budgets/fixed-expenses`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: 1, name: newFixedName, amount: parseFloat(newFixedAmount), day_of_month: 1 })
+          body: JSON.stringify({ user_id: pet.current_user.user_id, name: newFixedName, amount: parseFloat(newFixedAmount), day_of_month: 1 })
       });
-      usePetStore.getState().fetchFixedExpenses(1);
+      usePetStore.getState().fetchFixedExpenses(pet.current_user.user_id);
       setNewFixedName(""); setNewFixedAmount("");
   }
   
   const removeFixedExpense = async (id) => {
       await fetch(`http://localhost:8000/api/budgets/fixed-expenses/${id}`, { method: "DELETE" });
-      usePetStore.getState().fetchFixedExpenses(1);
+      usePetStore.getState().fetchFixedExpenses(pet.current_user.user_id);
   }
 
   const submitEditGeneralBudget = () => {
@@ -68,9 +94,9 @@ function App() {
       await fetch(`http://localhost:8000/api/budgets/shared`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newGoalName, target_amount: parseFloat(newGoalTarget), creator_user_id: 1 })
+        body: JSON.stringify({ name: newGoalName, target_amount: parseFloat(newGoalTarget), creator_user_id: pet.current_user.user_id })
       });
-      usePetStore.getState().fetchSharedGoals(1);
+      usePetStore.getState().fetchSharedGoals(pet.current_user.user_id);
       setCreateModalOpen(false);
       setNewGoalName(''); setNewGoalTarget('');
     } catch(e) {
@@ -84,9 +110,9 @@ function App() {
       await fetch(`http://localhost:8000/api/budgets/shared/${editingGoalId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newGoalName, target_amount: parseFloat(newGoalTarget), creator_user_id: 1 })
+        body: JSON.stringify({ name: newGoalName, target_amount: parseFloat(newGoalTarget), creator_user_id: pet.current_user.user_id })
       });
-      usePetStore.getState().fetchSharedGoals(1);
+      usePetStore.getState().fetchSharedGoals(pet.current_user.user_id);
       setEditModalOpen(false);
       setEditingGoalId(null);
       setNewGoalName(''); setNewGoalTarget('');
@@ -99,7 +125,7 @@ function App() {
     if(!window.confirm("¿Seguro que deseas eliminar este presupuesto permanentemente? Los ahorros no se perderán, solo la meta.")) return;
     try {
       await fetch(`http://localhost:8000/api/budgets/shared/${gId}`, { method: "DELETE" });
-      usePetStore.getState().fetchSharedGoals(1);
+      usePetStore.getState().fetchSharedGoals(pet.current_user.user_id);
     } catch(e) {}
   }
 
@@ -107,7 +133,7 @@ function App() {
     if(!window.confirm(`¿Quitar a ${uName} de la meta? Así ya no podrá aportar desde su celular.`)) return;
     try {
       await fetch(`http://localhost:8000/api/budgets/shared/${gId}/participants/${uId}`, { method: "DELETE" });
-      usePetStore.getState().fetchSharedGoals(1);
+      usePetStore.getState().fetchSharedGoals(pet.current_user.user_id);
     } catch(e) {}
   }
 
@@ -143,12 +169,40 @@ function App() {
         body: JSON.stringify({ identifier: phone })
       });
       await req.json();
-      usePetStore.getState().fetchSharedGoals(1);
+      usePetStore.getState().fetchSharedGoals(pet.current_user.user_id);
       setInviteModal({ open: false, goalId: null });
       setInvitePhone("");
     } catch (e) {
       alert("Error conectando con el servidor.");
     }
+  }
+
+  if (!pet.current_user) {
+    return (
+      <div className="mobile-app-container justify-center" style={{padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100vh', background: '#f8fafc'}}>
+         <div style={{display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center'}}>
+           <div className="icon-wrapper" style={{width: '60px', height: '60px', background: 'white', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)'}}>
+              <Sparkles size={32} color="var(--accent)" />
+           </div>
+           <h2 style={{fontSize: '26px', color: 'var(--text-main)', marginBottom: '0'}}>Billeterín App</h2>
+           <p className="text-muted text-center text-sm" style={{marginBottom: '10px'}}>{isLoginView ? "Inicia sesión para ver a tu mascota financiera." : "Crea tu cuenta de finanzas gamificada."}</p>
+           
+           {!isLoginView && (
+             <input type="text" placeholder="👤 Tu Nombre" className="glass-input" style={{padding: '14px', fontSize: '15px'}} value={authName} onChange={e=>setAuthName(e.target.value)} />
+           )}
+           <input type="text" inputMode="tel" placeholder="📞 Teléfono (WhatsApp)" className="glass-input" style={{padding: '14px', fontSize: '15px'}} value={authPhone} onChange={e=>setAuthPhone(e.target.value)} />
+           <input type="password" placeholder="🔒 Contraseña segura" className="glass-input" style={{padding: '14px', fontSize: '15px'}} value={authPassword} onChange={e=>setAuthPassword(e.target.value)} />
+           
+           <button className="btn-micro btn-micro-success" style={{width: '100%', padding: '16px', fontSize: '16px', marginTop: '10px', fontWeight: 'bold'}} onClick={submitAuth}>
+             {isLoginView ? "Entrar Mágicamente" : "Comenzar Aventura"}
+           </button>
+
+           <p className="text-sm mt-3" style={{cursor:'pointer', color:'var(--accent)', fontWeight: '600'}} onClick={()=>setIsLoginView(!isLoginView)}>
+             {isLoginView ? "¿Nuevo por aquí? Regístrate." : "¿Ya tienes mascota? Inicia Sesión."}
+           </p>
+         </div>
+      </div>
+    )
   }
 
   return (
@@ -301,12 +355,12 @@ function App() {
                {goal.participants.map((p, idx) => (
                  <div className="participant-row" key={idx}>
                    <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                     {p.id !== 1 && (
+                     {p.id !== pet.current_user?.user_id && (
                        <button onClick={() => handleRemoveParticipant(goal.id, p.id, p.name)} className="btn-icon-tiny" title="Quitar participante">
                           <X size={14} fill="currentColor" color="var(--danger)" />
                        </button>
                      )}
-                     <span className="participant-name">{p.id === 1 ? "Yo (Mi aporte)" : (p.name || "Desconocido")}</span>
+                     <span className="participant-name">{p.id === pet.current_user?.user_id ? "Yo (Mi aporte)" : (p.name || "Desconocido")}</span>
                    </div>
                    <span className="participant-amount">${p.contributed.toLocaleString()}</span>
                  </div>
@@ -450,7 +504,7 @@ function App() {
                 <Calendar size={18} color="var(--purple)"/> Gastos Fijos
              </button>
              <div className="sidebar-divider"></div>
-             <button className="sidebar-item text-danger" onClick={() => alert("Cerrando sesión...")}>
+             <button className="sidebar-item text-danger" onClick={() => usePetStore.getState().logoutUser()}>
                 <LogOut size={18} color="var(--danger)"/> Salir de la App
              </button>
           </div>
@@ -468,16 +522,15 @@ function App() {
             
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
               Nombre / Alias
-              <input type="text" placeholder="📝 Ej. Alejandro" className="glass-input" defaultValue="Alejandro" />
+              <input type="text" placeholder="📝 Ej. Alejandro" className="glass-input" defaultValue={pet.current_user?.name} disabled style={{opacity: 0.8}} />
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
               Teléfono (Asociado a WhatsApp)
-              <input type="text" className="glass-input" defaultValue="573153404327" disabled style={{opacity: 0.6}} />
+              <input type="text" className="glass-input" defaultValue={pet.current_user?.phone_number} disabled style={{opacity: 0.6}} />
             </label>
             
             <div className="modal-actions mt-2">
-              <button className="btn-micro btn-micro-danger" style={{ padding: '8px 16px' }} onClick={() => setUserProfileModalOpen(false)}>Cancelar</button>
-              <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={() => setUserProfileModalOpen(false)}>Guardar Cambios</button>
+              <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={() => setUserProfileModalOpen(false)}>Regresar</button>
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 import models
-from routers import whatsapp, budgets
+from routers import whatsapp, budgets, auth
 
 # Crear tablas automáticamente al arrancar
 Base.metadata.create_all(bind=engine)
