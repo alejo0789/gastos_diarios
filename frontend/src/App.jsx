@@ -1,11 +1,132 @@
+import { useEffect, useState } from 'react'
 import { usePetStore } from './store/usePetStore'
-import { Wallet, Target, Sparkles, Plus, Minus } from 'lucide-react'
+import { Wallet, Target, Sparkles, Plus, Minus, Trash2, Edit2, X } from 'lucide-react'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import './App.css'
 
 function App() {
-  const { pet, simulateExpense, simulateIncome, manageBudget, manageGoal } = usePetStore();
+  const { pet, simulateExpense, simulateIncome, manageBudget, updateGeneralBudget } = usePetStore();
   const isSad = pet.health <= 50;
+
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState(null);
+
+  const [editGeneralBudgetModal, setEditGeneralBudgetModal] = useState(false);
+  const [newGeneralBudget, setNewGeneralBudget] = useState("");
+  
+  const [newGoalName, setNewGoalName] = useState("");
+  const [newGoalTarget, setNewGoalTarget] = useState("");
+
+  const [inviteModal, setInviteModal] = useState({ open: false, goalId: null });
+  const [invitePhone, setInvitePhone] = useState("");
+
+  useEffect(() => {
+    usePetStore.getState().fetchSharedGoals(1);
+  }, []);
+
+  const submitEditGeneralBudget = () => {
+    if (!newGeneralBudget) return;
+    updateGeneralBudget(parseInt(newGeneralBudget));
+    setEditGeneralBudgetModal(false);
+    setNewGeneralBudget("");
+  }
+
+  const openEditModal = (g) => {
+    setEditingGoalId(g.id);
+    setNewGoalName(g.name);
+    setNewGoalTarget(g.target_amount);
+    setEditModalOpen(true);
+  }
+
+  const submitCreateGoal = async () => {
+    if (!newGoalName || !newGoalTarget) return;
+    try {
+      await fetch(`http://localhost:8000/api/budgets/shared`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGoalName, target_amount: parseFloat(newGoalTarget), creator_user_id: 1 })
+      });
+      usePetStore.getState().fetchSharedGoals(1);
+      setCreateModalOpen(false);
+      setNewGoalName(''); setNewGoalTarget('');
+    } catch(e) {
+       alert("Error creando el viaje.");
+    }
+  }
+
+  const submitEditGoal = async () => {
+    if (!newGoalName || !newGoalTarget) return;
+    try {
+      await fetch(`http://localhost:8000/api/budgets/shared/${editingGoalId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGoalName, target_amount: parseFloat(newGoalTarget), creator_user_id: 1 })
+      });
+      usePetStore.getState().fetchSharedGoals(1);
+      setEditModalOpen(false);
+      setEditingGoalId(null);
+      setNewGoalName(''); setNewGoalTarget('');
+    } catch(e) {
+       alert("Error actualizando el viaje.");
+    }
+  }
+
+  const handleDeleteGoal = async (gId) => {
+    if(!window.confirm("¿Seguro que deseas eliminar este presupuesto permanentemente? Los ahorros no se perderán, solo la meta.")) return;
+    try {
+      await fetch(`http://localhost:8000/api/budgets/shared/${gId}`, { method: "DELETE" });
+      usePetStore.getState().fetchSharedGoals(1);
+    } catch(e) {}
+  }
+
+  const handleRemoveParticipant = async (gId, uId, uName) => {
+    if(!window.confirm(`¿Quitar a ${uName} de la meta? Así ya no podrá aportar desde su celular.`)) return;
+    try {
+      await fetch(`http://localhost:8000/api/budgets/shared/${gId}/participants/${uId}`, { method: "DELETE" });
+      usePetStore.getState().fetchSharedGoals(1);
+    } catch(e) {}
+  }
+
+  const handleInvite = async (goalId) => {
+    // Intentar abrir agenda nativa primero
+    if ('contacts' in navigator && 'ContactsManager' in window) {
+      try {
+        const props = ['name', 'tel'];
+        const contacts = await navigator.contacts.select(props, {multiple: false});
+        if (contacts.length > 0) {
+          const identifier = contacts[0].tel?.[0] || contacts[0].name?.[0];
+          if(identifier) {
+             submitInvite(goalId, identifier);
+             return;
+          }
+        }
+      } catch (ex) {
+         // Silently fallback to manual modal
+      }
+    }
+    // Fallback: Mostrar modal hermoso nativo en React
+    setInviteModal({ open: true, goalId: goalId });
+  }
+
+  const submitInvite = async (forcedGoalId, forcedPhone) => {
+    const gId = forcedGoalId || inviteModal.goalId;
+    const phone = forcedPhone || invitePhone;
+    if(!phone) return;
+
+    try {
+      const req = await fetch(`http://localhost:8000/api/budgets/shared/${gId}/participants`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: phone })
+      });
+      await req.json();
+      usePetStore.getState().fetchSharedGoals(1);
+      setInviteModal({ open: false, goalId: null });
+      setInvitePhone("");
+    } catch (e) {
+      alert("Error conectando con el servidor.");
+    }
+  }
 
   return (
     <div className="mobile-app-container">
@@ -28,13 +149,13 @@ function App() {
           </div>
         </div>
         
-        {isSad ? (
-           <img src="/sad.png" alt="Pet triste" className="pet-avatar" />
-        ) : (
-           <div className="pet-avatar-lottie" style={{ width: '150px', height: '150px', margin: '0.5rem 0 1rem 0' }}>
-             <DotLottieReact src="/happy.lottie" loop autoplay />
-           </div>
-        )}
+        <div className="pet-avatar-lottie" style={{ width: '150px', height: '150px', margin: '0.5rem 0 1rem 0', filter: 'drop-shadow(0 15px 20px rgba(0,0,0,0.1))' }}>
+           <DotLottieReact 
+             src={isSad ? "/sad.lottie" : "/happy.lottie"} 
+             loop 
+             autoplay 
+           />
+        </div>
         <h2 className="pet-name">{pet.name}</h2>
         
         <div className="health-container">
@@ -51,19 +172,19 @@ function App() {
         </div>
       </div>
 
-      {/* 2. MÉTRICAS GLOBALES */}
-      <div className="summary-grid">
-        <div className="mini-card">
-          <span className="mini-label">Ingresos</span>
-          <span className="mini-value text-green">${pet.income}</span>
+      {/* 2. MÉTRICAS GLOBALES VERTICALES */}
+      <div className="summary-list">
+        <div className="summary-row">
+          <span className="summary-label">Ingresos del Mes</span>
+          <span className="summary-value text-green">+ ${pet.income.toLocaleString('es-CO')}</span>
         </div>
-        <div className="mini-card">
-          <span className="mini-label">Gastos Base</span>
-          <span className="mini-value text-red">${pet.general_current_spent}</span>
+        <div className="summary-row">
+          <span className="summary-label">Gastos Totales</span>
+          <span className="summary-value text-red">- ${pet.general_current_spent.toLocaleString('es-CO')}</span>
         </div>
-        <div className="mini-card">
-          <span className="mini-label">Ahorros</span>
-          <span className="mini-value text-purple">${pet.savings}</span>
+        <div className="summary-row">
+          <span className="summary-label">Ahorros Destinados</span>
+          <span className="summary-value text-purple">~ ${pet.savings.toLocaleString('es-CO')}</span>
         </div>
       </div>
 
@@ -71,18 +192,24 @@ function App() {
       <div className="budgets-section">
         <h3 className="section-title">Mis Presupuestos</h3>
         
-        {/* Presupuesto General */}
+        {/* Mi Presupuesto */}
         <div className="finance-card">
-          <div className="card-header-row">
-            <div className="icon-wrapper bg-blue"><Wallet size={20} color="var(--accent)" /></div>
-            <h3 className="card-title">Presupuesto General</h3>
-          </div>
-          <div className="card-amount">
-            ${pet.general_current_spent.toLocaleString()} 
-            <span className="text-muted text-sm" style={{marginLeft: '6px'}}> / ${pet.general_budget_limit.toLocaleString()} límite</span>
+          <div className="card-header-row" style={{ justifyContent: 'space-between' }}>
+            <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+              <div className="icon-wrapper bg-blue"><Wallet size={20} color="var(--accent)" /></div>
+              <h3 className="card-title">Mi Presupuesto</h3>
+            </div>
+            <div style={{display:'flex', cursor:'pointer', alignItems: 'center'}}>
+               <Edit2 size={16} className="text-muted hover-accent" onClick={() => { setNewGeneralBudget(pet.general_budget_limit.toString()); setEditGeneralBudgetModal(true); }} />
+            </div>
           </div>
           
-          <div className="progress-bg mt-3">
+          <div className="card-amount mt-3">
+            ${pet.general_current_spent.toLocaleString('es-CO')} 
+            <span className="text-muted text-sm" style={{marginLeft: '6px'}}> / ${pet.general_budget_limit.toLocaleString('es-CO')} Límite Men.</span>
+          </div>
+
+          <div className="progress-bg mt-2">
             <div 
               className="progress-fill"
               style={{
@@ -91,54 +218,199 @@ function App() {
               }}
             />
           </div>
-          <p className="budget-alert">
-            {pet.general_current_spent > pet.general_budget_limit ? "⚠️ Presupuesto excedido (Daño a la mascota)" : "👍 Dentro del presupuesto seguro"}
-          </p>
-          
-          {/* Botones de acción directa en la tarjeta */}
-          <div className="card-actions-inline mt-3">
-            <button className="btn-micro" onClick={() => manageBudget(-50)}>
-              <Plus size={14}/> Reembolso $50
-            </button>
-            <button className="btn-micro btn-micro-danger" onClick={() => manageBudget(50)}>
-              <Minus size={14}/> Registrar Gasto $50
-            </button>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', background: '#f8fafc', padding: '12px', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+               <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>SEMANA ACTUAL</span>
+               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px'}}>
+                 <span style={{ fontSize: '15px', color: 'var(--text-main)', fontWeight: '700' }}>${pet.general_weekly_spent?.toLocaleString('es-CO') || '0'}</span>
+                 <span style={{ fontSize: '11px', color: '#94a3b8' }}>/ ${(pet.general_budget_limit / 4).toLocaleString('es-CO')}</span>
+               </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+               <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>MES ACTUAL</span>
+               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px'}}>
+                 <span style={{ fontSize: '15px', color: 'var(--text-main)', fontWeight: '700' }}>${pet.general_current_spent.toLocaleString('es-CO')}</span>
+               </div>
+            </div>
           </div>
+          
+          <p className="budget-alert mt-4 mb-1" style={{ fontSize: '12px' }}>
+            {pet.general_current_spent > pet.general_budget_limit ? "⚠️ Presupuesto mensual excedido (Daño a la mascota)" : "👍 Vas súper bien, sigue cuidando a tu mascota."}
+          </p>
         </div>
 
-        {/* Otra Card: Meta Compartida */}
-        <div className="finance-card">
-          <div className="card-header-row">
-            <div className="icon-wrapper bg-purple"><Target size={20} color="#8b5cf6" /></div>
-            <h3 className="card-title">Viaje a Cancún (Compartida)</h3>
-          </div>
-          <div className="card-amount text-dark">
-            ${pet.shared_goal_saved.toLocaleString()} 
-            <span className="text-muted text-sm" style={{marginLeft: '6px'}}> / ${pet.shared_goal_target.toLocaleString()}</span>
-          </div>
-          <div className="progress-bg mt-3">
-            <div 
-              className="progress-fill" 
-              style={{ 
-                width: `${Math.min((pet.shared_goal_saved / pet.shared_goal_target) * 100, 100)}%`, 
-                backgroundColor: '#8b5cf6' 
-              }} 
-            />
-          </div>
-          <p className="text-muted text-sm mt-3">2 participantes contribuyendo de sus ahorros.</p>
-          
-          {/* Botones de acción directa en la tarjeta */}
-          <div className="card-actions-inline mt-3">
-            <button className="btn-micro" onClick={() => manageGoal(-100)}>
-              <Minus size={14}/> Extraer $100
-            </button>
-            <button className="btn-micro btn-micro-success" onClick={() => manageGoal(100)}>
-              <Plus size={14}/> Aportar $100
-            </button>
-          </div>
+        {/* METAS Y VIAJES DINÁMICOS DESDE LA BD */}
+        <div className="goals-header mt-3">
+           <h3 className="section-title" style={{margin:0}}>Presupuestos Compartidos</h3>
+           <button className="btn-mini btn-income" onClick={() => setCreateModalOpen(true)}>
+             <Plus size={14}/> Nuevo Presupuesto
+           </button>
         </div>
+
+        {pet.shared_goals.map(goal => (
+          <div className="finance-card" key={goal.id}>
+            <div className="card-header-row" style={{ justifyContent: 'space-between' }}>
+              <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                <div className="icon-wrapper bg-purple"><Target size={20} color="#8b5cf6" /></div>
+                <h3 className="card-title">{goal.name}</h3>
+              </div>
+              <div style={{display:'flex', gap:'14px', cursor:'pointer', alignItems: 'center'}}>
+                <Edit2 size={16} className="text-muted hover-accent" onClick={() => openEditModal(goal)} />
+                <Trash2 size={16} className="text-muted hover-danger" onClick={() => handleDeleteGoal(goal.id)} />
+              </div>
+            </div>
+            
+            <div className="card-amount text-dark mt-2">
+              ${goal.saved_amount.toLocaleString()} 
+              <span className="text-muted text-sm" style={{marginLeft: '6px'}}> / ${goal.target_amount.toLocaleString()}</span>
+            </div>
+            
+            <div className="progress-bg mt-3">
+              <div 
+                className="progress-fill" 
+                style={{ 
+                  width: `${Math.min((goal.saved_amount / goal.target_amount) * 100, 100)}%`, 
+                  backgroundColor: '#8b5cf6' 
+                }} 
+              />
+            </div>
+            
+            <div className="participants-list mt-3">
+               <p className="text-sm font-semibold" style={{marginBottom: '6px'}}>Aportes de los miembros:</p>
+               {goal.participants.map((p, idx) => (
+                 <div className="participant-row" key={idx}>
+                   <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                     <button onClick={() => handleRemoveParticipant(goal.id, p.id, p.name)} className="btn-icon-tiny" title="Quitar participante">
+                        <X size={14} fill="currentColor" color="var(--danger)" />
+                     </button>
+                     <span className="participant-name">{p.name || "Desconocido"}</span>
+                   </div>
+                   <span className="participant-amount">${p.contributed.toLocaleString()}</span>
+                 </div>
+               ))}
+               {goal.participants.length === 0 && (
+                 <p className="text-muted text-sm pb-1">Nadie ha aportado todavía.</p>
+               )}
+            </div>
+            
+            {/* Botón para solicitar invitar un contacto del teléfono */}
+            <div className="card-actions-inline mt-3">
+              <button className="btn-micro" onClick={() => handleInvite(goal.id)}>
+                <Plus size={14}/> Seleccionar Nuevo Contacto
+              </button>
+            </div>
+          </div>
+        ))}
 
       </div>
+
+      {/* MODAL CREAR META (GLASSMORPHISM) */}
+      {createModalOpen && (
+        <div className="modal-overlay" onClick={() => setCreateModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Nuevo Presupuesto</h3>
+              <p className="text-muted text-sm m-0">Define un nombre y el monto límite o meta que desean administrar en equipo.</p>
+            </div>
+            
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+              Nombre Descriptivo
+              <input type="text" placeholder="📝 Ej. Gastos de la Casa, Viaje..." className="glass-input" 
+                value={newGoalName} onChange={e => setNewGoalName(e.target.value)} />
+            </label>
+            
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+              Presupuesto
+              <input type="text" inputMode="numeric" placeholder="💰 Ej. 50.000" className="glass-input" 
+                 value={newGoalTarget ? Number(newGoalTarget).toLocaleString('es-CO') : ''} 
+                 onChange={e => setNewGoalTarget(e.target.value.replace(/\D/g, ''))} />
+            </label>
+            
+            <div className="modal-actions mt-2">
+              <button className="btn-micro btn-micro-danger" style={{ padding: '8px 16px' }} onClick={() => setCreateModalOpen(false)}>Cancelar</button>
+              <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={submitCreateGoal}>Guardar Presupuesto</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL INVITAR CONTACTO (GLASSMORPHISM) */}
+      {inviteModal.open && (
+        <div className="modal-overlay" onClick={() => setInviteModal({open: false, goalId: null})}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Invitar Participante</h3>
+              <p className="text-muted text-sm m-0">Ingresa el celular de la persona que se unirá a este presupuesto.</p>
+            </div>
+            
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+              Número de Celular o Usuario
+              <input type="text" placeholder="📞 Ej. 573210000000" className="glass-input" 
+                 value={invitePhone} onChange={e => setInvitePhone(e.target.value)} />
+            </label>
+            
+            <div className="modal-actions mt-2">
+              <button className="btn-micro btn-micro-danger" style={{ padding: '8px 16px' }} onClick={() => setInviteModal({open: false, goalId: null})}>Cancelar</button>
+              <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={() => submitInvite(null, null)}>Vincular Amigo</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDITAR META (GLASSMORPHISM) */}
+      {editModalOpen && (
+        <div className="modal-overlay" onClick={() => setEditModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Editar Presupuesto</h3>
+              <p className="text-muted text-sm m-0">Modifica libremente el nombre o el dinero objetivo.</p>
+            </div>
+            
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+              Nombre
+              <input type="text" className="glass-input" 
+                value={newGoalName} onChange={e => setNewGoalName(e.target.value)} />
+            </label>
+            
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+              Presupuesto
+              <input type="text" inputMode="numeric" className="glass-input" 
+                 value={newGoalTarget ? Number(newGoalTarget).toLocaleString('es-CO') : ''} 
+                 onChange={e => setNewGoalTarget(e.target.value.replace(/\D/g, ''))} />
+            </label>
+            
+            <div className="modal-actions mt-2">
+              <button className="btn-micro btn-micro-danger" style={{ padding: '8px 16px' }} onClick={() => setEditModalOpen(false)}>Cancelar</button>
+              <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={submitEditGoal}>Actualizar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDITAR PRESUPUESTO GENERAL (GLASSMORPHISM) */}
+      {editGeneralBudgetModal && (
+        <div className="modal-overlay" onClick={() => setEditGeneralBudgetModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Configurar Presupuesto</h3>
+              <p className="text-muted text-sm m-0">El dinero máximo a gastar. Se dividirá entre 4 semanas automáticamente para tu meta semanal.</p>
+            </div>
+            
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+              Límite Mensual Total
+              <input type="text" inputMode="numeric" placeholder="💰 Ej. 1.000.000" className="glass-input" 
+                 value={newGeneralBudget ? Number(newGeneralBudget).toLocaleString('es-CO') : ''} 
+                 onChange={e => setNewGeneralBudget(e.target.value.replace(/\D/g, ''))} />
+            </label>
+            
+            <div className="modal-actions mt-2">
+              <button className="btn-micro btn-micro-danger" style={{ padding: '8px 16px' }} onClick={() => setEditGeneralBudgetModal(false)}>Cancelar</button>
+              <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={submitEditGeneralBudget}>Actualizar Límite</button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

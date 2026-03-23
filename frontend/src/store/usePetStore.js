@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export const usePetStore = create((set) => ({
+export const usePetStore = create((set, get) => ({
   pet: {
     name: "Billeterín",
     species: "piggy_bank",
@@ -9,20 +9,33 @@ export const usePetStore = create((set) => ({
     xp: 450,
     stage: "baby",
     
-    // Globals
-    income: 1800,
-    savings: 300,
+    income: 1800000,
+    savings: 300000,
     
-    // Presupuesto General
-    general_budget_limit: 1000,
-    general_current_spent: 450,
+    general_budget_limit: 1000000,
+    general_current_spent: 450000,
+    general_weekly_spent: 120000,
 
-    // Meta Compartida
-    shared_goal_target: 20000,
-    shared_goal_saved: 12000
+    shared_goals: [] // Ahora las metas vienen de la Base de Datos
   },
   
   setPetData: (data) => set({ pet: data }),
+  
+  updateGeneralBudget: (limit) => set((state) => ({
+      pet: { ...state.pet, general_budget_limit: limit }
+  })),
+  
+  fetchSharedGoals: async (userId = 1) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/budgets/shared/${userId}`);
+      const goals = await res.json();
+      set((state) => ({
+        pet: { ...state.pet, shared_goals: goals }
+      }));
+    } catch (e) {
+      console.error("Error cargando metas compartidas:", e);
+    }
+  },
   
   // Acciones globales (Arriba)
   simulateExpense: (amount) => set((state) => {
@@ -45,9 +58,8 @@ export const usePetStore = create((set) => ({
     }
   }),
 
-  // Acciones por Presupuesto/Trajeta
+  // Acciones por Presupuesto/Tarjeta
   manageBudget: (amount) => set((state) => {
-    // amount + => Gasto, amount - => Reembolso
     const newSpent = Math.max(0, state.pet.general_current_spent + amount);
     const overBudget = newSpent > state.pet.general_budget_limit;
     
@@ -57,21 +69,6 @@ export const usePetStore = create((set) => ({
         general_current_spent: newSpent,
         health: overBudget ? Math.max(0, state.pet.health - 20) : state.pet.health,
         xp: state.pet.xp + 5
-      }
-    }
-  }),
-
-  manageGoal: (amount) => set((state) => {
-    // amount + => Aportar, amount - => Retirar
-    const newSaved = Math.max(0, state.pet.shared_goal_saved + amount);
-    
-    return {
-      pet: {
-        ...state.pet,
-        shared_goal_saved: newSaved,
-        savings: state.pet.savings - amount, // Si aportas, sale de tus ahorros
-        happiness: amount > 0 ? Math.min(100, state.pet.happiness + 10) : Math.max(0, state.pet.happiness - 5),
-        xp: amount > 0 ? state.pet.xp + 15 : state.pet.xp
       }
     }
   })
