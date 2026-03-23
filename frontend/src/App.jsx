@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { usePetStore } from './store/usePetStore'
-import { Wallet, Target, Sparkles, Plus, Minus, Trash2, Edit2, X } from 'lucide-react'
+import { Wallet, Target, Sparkles, Plus, Minus, Trash2, Edit2, X, Menu, User, Calendar, LogOut } from 'lucide-react'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import './App.css'
 
@@ -15,6 +15,10 @@ function App() {
   const [editGeneralBudgetModal, setEditGeneralBudgetModal] = useState(false);
   const [newGeneralBudget, setNewGeneralBudget] = useState("");
   
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userProfileModalOpen, setUserProfileModalOpen] = useState(false);
+  const [fixedExpensesModalOpen, setFixedExpensesModalOpen] = useState(false);
+
   const [newGoalName, setNewGoalName] = useState("");
   const [newGoalTarget, setNewGoalTarget] = useState("");
 
@@ -140,12 +144,9 @@ function App() {
              <span className="badge species-badge">{pet.species.replace('_', ' ')}</span>
           </div>
           <div className="mini-actions">
-             <button className="btn-mini btn-income" onClick={() => simulateIncome(100)}>
-                <Plus size={14} /> Sueldo Extra
-             </button>
-             <button className="btn-mini btn-expense" onClick={() => simulateExpense(50)}>
-                <Minus size={14} /> Imprevisto
-             </button>
+            <button className="btn-icon-tiny" onClick={() => setIsMenuOpen(true)}>
+               <Menu size={24} color="var(--text-main)" />
+            </button>
           </div>
         </div>
         
@@ -281,10 +282,12 @@ function App() {
                {goal.participants.map((p, idx) => (
                  <div className="participant-row" key={idx}>
                    <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                     <button onClick={() => handleRemoveParticipant(goal.id, p.id, p.name)} className="btn-icon-tiny" title="Quitar participante">
-                        <X size={14} fill="currentColor" color="var(--danger)" />
-                     </button>
-                     <span className="participant-name">{p.name || "Desconocido"}</span>
+                     {p.id !== 1 && (
+                       <button onClick={() => handleRemoveParticipant(goal.id, p.id, p.name)} className="btn-icon-tiny" title="Quitar participante">
+                          <X size={14} fill="currentColor" color="var(--danger)" />
+                       </button>
+                     )}
+                     <span className="participant-name">{p.id === 1 ? "Yo (Mi aporte)" : (p.name || "Desconocido")}</span>
                    </div>
                    <span className="participant-amount">${p.contributed.toLocaleString()}</span>
                  </div>
@@ -407,6 +410,90 @@ function App() {
             <div className="modal-actions mt-2">
               <button className="btn-micro btn-micro-danger" style={{ padding: '8px 16px' }} onClick={() => setEditGeneralBudgetModal(false)}>Cancelar</button>
               <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={submitEditGeneralBudget}>Actualizar Límite</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SIDEBAR NAVIGATION */}
+      <>
+        {isMenuOpen && <div className="modal-overlay" style={{background: 'rgba(0,0,0,0.2)', backdropFilter:'blur(2px)'}} onClick={() => setIsMenuOpen(false)} />}
+        <div className={`sidebar ${isMenuOpen ? 'open' : ''}`}>
+          <div className="sidebar-header">
+             <h3 style={{margin:0}}>Ajustes</h3>
+             <X size={20} className="text-muted hover-danger" onClick={() => setIsMenuOpen(false)} style={{cursor: 'pointer'}} />
+          </div>
+          <div className="sidebar-content">
+             <button className="sidebar-item" onClick={() => {setIsMenuOpen(false); setUserProfileModalOpen(true);}}>
+                <User size={18} color="var(--accent)"/> Mi Perfil
+             </button>
+             <button className="sidebar-item" onClick={() => {setIsMenuOpen(false); setFixedExpensesModalOpen(true);}}>
+                <Calendar size={18} color="var(--purple)"/> Gastos Fijos
+             </button>
+             <div className="sidebar-divider"></div>
+             <button className="sidebar-item text-danger" onClick={() => alert("Cerrando sesión...")}>
+                <LogOut size={18} color="var(--danger)"/> Salir de la App
+             </button>
+          </div>
+        </div>
+      </>
+
+      {/* MODAL PERFIL DE USUARIO */}
+      {userProfileModalOpen && (
+        <div className="modal-overlay" onClick={() => setUserProfileModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Mi Perfil</h3>
+              <p className="text-muted text-sm m-0">Actualiza tus datos para que Billeterín y tus amigos sepan quién eres.</p>
+            </div>
+            
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+              Nombre / Alias
+              <input type="text" placeholder="📝 Ej. Alejandro" className="glass-input" defaultValue="Alejandro" />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
+              Teléfono (Asociado a WhatsApp)
+              <input type="text" className="glass-input" defaultValue="573153404327" disabled style={{opacity: 0.6}} />
+            </label>
+            
+            <div className="modal-actions mt-2">
+              <button className="btn-micro btn-micro-danger" style={{ padding: '8px 16px' }} onClick={() => setUserProfileModalOpen(false)}>Cancelar</button>
+              <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={() => setUserProfileModalOpen(false)}>Guardar Cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PLANEACIÓN GASTOS FIJOS */}
+      {fixedExpensesModalOpen && (
+        <div className="modal-overlay" onClick={() => setFixedExpensesModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Planeamiento de Gastos Fijos</h3>
+              <p className="text-muted text-sm m-0">Pagos recurrentes que se restarán siempre fijo de tu presupuesto el 1ro del mes.</p>
+            </div>
+            
+            <div style={{background: '#f8fafc', padding: '12px', borderRadius:'12px', display:'flex', flexDirection:'column', gap:'10px'}}>
+               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <span style={{fontSize:'14px', fontWeight:'500'}}>Arriendo Apartamento</span>
+                  <span style={{fontSize:'14px', fontWeight:'bold', color:'var(--danger)'}}>- $500.000</span>
+               </div>
+               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <span style={{fontSize:'14px', fontWeight:'500'}}>Recibo de Internet</span>
+                  <span style={{fontSize:'14px', fontWeight:'bold', color:'var(--danger)'}}>- $85.000</span>
+               </div>
+               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <span style={{fontSize:'14px', fontWeight:'500'}}>Membresía del Gimnasio</span>
+                  <span style={{fontSize:'14px', fontWeight:'bold', color:'var(--danger)'}}>- $60.000</span>
+               </div>
+            </div>
+
+            <button className="btn-micro" style={{justifyContent: 'center', padding: '10px', marginTop: '4px'}}>
+              <Plus size={16} /> Añadir Gasto Fijo
+            </button>
+            
+            <div className="modal-actions mt-2">
+              <button className="btn-micro btn-micro-success" style={{ padding: '8px 16px' }} onClick={() => setFixedExpensesModalOpen(false)}>Terminar</button>
             </div>
           </div>
         </div>
