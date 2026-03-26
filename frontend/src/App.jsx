@@ -6,10 +6,12 @@ import Chart from 'react-apexcharts'
 import './App.css'
 
 function App() {
-  const { pet, current_user, simulateExpense, simulateIncome, manageBudget, updateGeneralBudget, expensesHistory, fetchExpensesHistory } = usePetStore();
+  const { pet, current_user, simulateExpense, simulateIncome, manageBudget, updateGeneralBudget, expensesHistory, fetchExpensesHistory, incomeHistory, fetchIncomeHistory, savingsHistory, fetchSavingsHistory } = usePetStore();
   const isSad = pet.health <= 50;
 
   const [expensesModalOpen, setExpensesModalOpen] = useState(false);
+  const [incomeModalOpen, setIncomeModalOpen] = useState(false);
+  const [savingsModalOpen, setSavingsModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState(null);
@@ -36,6 +38,8 @@ function App() {
   const [authName, setAuthName] = useState("");
   
   const [filterDays, setFilterDays] = useState(30);
+  const [filterDaysIncome, setFilterDaysIncome] = useState(30);
+  const [filterDaysSavings, setFilterDaysSavings] = useState(30);
 
   useEffect(() => {
     if (current_user) {
@@ -259,7 +263,7 @@ function App() {
 
       {/* 2. MÉTRICAS GLOBALES (ESTILO BERRY) */}
       <div className="summary-grid">
-        <div className="berry-card green">
+        <div className="berry-card green" onClick={() => { fetchIncomeHistory(current_user.user_id); setIncomeModalOpen(true); }} style={{cursor: 'pointer'}}>
           <div className="berry-card-label">Ingresos del Mes</div>
           <div className="berry-card-value">${pet.income.toLocaleString('es-CO')}</div>
           <div className="berry-card-sub"><TrendingUp size={14}/> Mis entradas</div>
@@ -271,7 +275,7 @@ function App() {
           <div className="berry-card-sub"><TrendingDown size={14}/> Ver historial detallado</div>
         </div>
 
-        <div className="berry-card purple">
+        <div className="berry-card purple" onClick={() => { fetchSavingsHistory(current_user.user_id); setSavingsModalOpen(true); }} style={{cursor: 'pointer'}}>
           <div className="berry-card-label">Ahorros Acumulados</div>
           <div className="berry-card-value">${pet.savings.toLocaleString('es-CO')}</div>
           <div className="berry-card-sub"><Sparkles size={14}/> Tu meta de ahorro</div>
@@ -516,6 +520,160 @@ function App() {
                       const diffTime = Math.abs(now - expDate);
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                       return diffDays <= filterDays;
+                    })
+                    .reduce((acc, curr) => acc + curr.amount, 0)
+                    .toLocaleString('es-CO')}
+               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL HISTORIAL DE INGRESOS */}
+      {incomeModalOpen && (
+        <div className="modal-overlay" onClick={() => setIncomeModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '85vh', width: '95%', maxWidth: '450px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', color: 'var(--text-main)', fontSize: '1.2rem' }}>Ingresos</h3>
+                <p className="text-muted text-sm m-0">Dinero que ha entrado a tu billetera.</p>
+              </div>
+              <button className="btn-icon-tiny" onClick={() => setIncomeModalOpen(false)}>
+                <X size={20} className="text-muted hover-danger" />
+              </button>
+            </div>
+
+            <div className="filter-tabs">
+              {[7, 15, 30].map(days => (
+                <button 
+                  key={days}
+                  className={`filter-tab ${filterDaysIncome === days ? 'active' : ''}`}
+                  onClick={() => setFilterDaysIncome(days)}
+                >
+                  {days === 30 ? 'Mes' : `${days} días`}
+                </button>
+              ))}
+              <button className={`filter-tab ${filterDaysIncome === 999 ? 'active' : ''}`} onClick={() => setFilterDaysIncome(999)}>Todo</button>
+            </div>
+            
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+              <div className="expense-table-header" style={{ display: 'flex', padding: '10px 16px', borderBottom: '2px solid #f1f5f9', fontSize: '12px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>
+                <span style={{ flex: 1 }}>Fuente / Fecha</span>
+                <span style={{ width: '90px', textAlign: 'right' }}>Monto</span>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {(!incomeHistory || incomeHistory.length === 0) ? (
+                   <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                      <p className="text-muted text-sm">No hay ingresos registrados.</p>
+                   </div>
+                ) : (
+                   incomeHistory
+                    .filter(item => {
+                      if (filterDaysIncome === 999) return true;
+                      const d = new Date(item.date);
+                      const diffDays = Math.ceil(Math.abs(new Date() - d) / (1000 * 60 * 60 * 24));
+                      return diffDays <= filterDaysIncome;
+                    })
+                    .map(item => (
+                      <div key={item.id} className="expense-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f8fafc' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
+                           <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>{item.description || "Ingreso General"}</span>
+                           <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(item.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                        <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--success)' }}>+${item.amount.toLocaleString('es-CO')}</span>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 'auto', padding: '12px', background: '#f8fafc', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>TOTAL INGRESADO</span>
+               <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--success)' }}>
+                 ${incomeHistory
+                    ?.filter(item => {
+                      if (filterDaysIncome === 999) return true;
+                      const d = new Date(item.date);
+                      const diffDays = Math.ceil(Math.abs(new Date() - d) / (1000 * 60 * 60 * 24));
+                      return diffDays <= filterDaysIncome;
+                    })
+                    .reduce((acc, curr) => acc + curr.amount, 0)
+                    .toLocaleString('es-CO')}
+               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL HISTORIAL DE AHORROS */}
+      {savingsModalOpen && (
+        <div className="modal-overlay" onClick={() => setSavingsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '85vh', width: '95%', maxWidth: '450px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', color: 'var(--text-main)', fontSize: '1.2rem' }}>Mis Ahorros</h3>
+                <p className="text-muted text-sm m-0">Aportes a metas y fondos de reserva.</p>
+              </div>
+              <button className="btn-icon-tiny" onClick={() => setSavingsModalOpen(false)}>
+                <X size={20} className="text-muted hover-danger" />
+              </button>
+            </div>
+
+            <div className="filter-tabs">
+              {[7, 15, 30].map(days => (
+                <button 
+                  key={days}
+                  className={`filter-tab ${filterDaysSavings === days ? 'active' : ''}`}
+                  onClick={() => setFilterDaysSavings(days)}
+                >
+                  {days === 30 ? 'Mes' : `${days} días`}
+                </button>
+              ))}
+              <button className={`filter-tab ${filterDaysSavings === 999 ? 'active' : ''}`} onClick={() => setFilterDaysSavings(999)}>Todo</button>
+            </div>
+            
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+              <div className="expense-table-header" style={{ display: 'flex', padding: '10px 16px', borderBottom: '2px solid #f1f5f9', fontSize: '12px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>
+                <span style={{ flex: 1 }}>Meta / Fecha</span>
+                <span style={{ width: '90px', textAlign: 'right' }}>Aporte</span>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {(!savingsHistory || savingsHistory.length === 0) ? (
+                   <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                      <p className="text-muted text-sm">Aún no tienes ahorros registrados.</p>
+                   </div>
+                ) : (
+                   savingsHistory
+                    .filter(item => {
+                      if (filterDaysSavings === 999) return true;
+                      const d = new Date(item.date);
+                      const diffDays = Math.ceil(Math.abs(new Date() - d) / (1000 * 60 * 60 * 24));
+                      return diffDays <= filterDaysSavings;
+                    })
+                    .map(item => (
+                      <div key={item.id} className="expense-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f8fafc' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
+                           <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>{item.description || item.category.replace('_', ' ')}</span>
+                           <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(item.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                        <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--purple)' }}>${item.amount.toLocaleString('es-CO')}</span>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 'auto', padding: '12px', background: '#f8fafc', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>TOTAL AHORRADO</span>
+               <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--purple)' }}>
+                 ${savingsHistory
+                    ?.filter(item => {
+                      if (filterDaysSavings === 999) return true;
+                      const d = new Date(item.date);
+                      const diffDays = Math.ceil(Math.abs(new Date() - d) / (1000 * 60 * 60 * 24));
+                      return diffDays <= filterDaysSavings;
                     })
                     .reduce((acc, curr) => acc + curr.amount, 0)
                     .toLocaleString('es-CO')}

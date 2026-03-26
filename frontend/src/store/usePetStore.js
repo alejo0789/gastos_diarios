@@ -31,6 +31,8 @@ export const usePetStore = create((set, get) => ({
   },
   
   expensesHistory: [],
+  incomeHistory: [],
+  savingsHistory: [],
   
   setPetData: (data) => set({ pet: data }),
   
@@ -38,12 +40,32 @@ export const usePetStore = create((set, get) => ({
       pet: { ...state.pet, general_budget_limit: limit }
   })),
 
-  fetchExpensesHistory: async (userId = 1) => {
+  fetchExpensesHistory: async (userId) => {
     try {
       const res = await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/expenses/${userId}`);
       if(res.ok) {
          const data = await res.json();
          set({ expensesHistory: data });
+      }
+    } catch(e) {}
+  },
+
+  fetchIncomeHistory: async (userId) => {
+    try {
+      const res = await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/income/${userId}`);
+      if(res.ok) {
+         const data = await res.json();
+         set({ incomeHistory: data });
+      }
+    } catch(e) {}
+  },
+
+  fetchSavingsHistory: async (userId) => {
+    try {
+      const res = await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/savings/${userId}`);
+      if(res.ok) {
+         const data = await res.json();
+         set({ savingsHistory: data });
       }
     } catch(e) {}
   },

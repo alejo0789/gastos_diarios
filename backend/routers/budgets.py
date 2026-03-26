@@ -251,3 +251,19 @@ def get_user_expenses(user_id: int, db: Session = Depends(get_db)):
     ).order_by(models.Expense.date.desc()).all()
     
     return expenses
+
+@router.get("/income/{user_id}")
+def get_user_income(user_id: int, db: Session = Depends(get_db)):
+    income = db.query(models.Income).filter(
+        models.Income.user_id == user_id
+    ).order_by(models.Income.date.desc()).all()
+    return income
+
+@router.get("/savings/{user_id}")
+def get_user_savings(user_id: int, db: Session = Depends(get_db)):
+    # Los ahorros son gastos que tienen una meta compartida o categoria "ahorro"
+    savings = db.query(models.Expense).filter(
+        models.Expense.user_id == user_id,
+        (models.Expense.shared_goal_id != None) | models.Expense.category.ilike('%ahorro%')
+    ).order_by(models.Expense.date.desc()).all()
+    return savings
