@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@lottiefiles/dotlottie-react": "^0.18.7",
+    "apexcharts": "^5.10.4",
     "lottie-react": "^2.4.1",
     "lucide-react": "^1.0.0",
     "react": "^19.2.4",
+    "react-apexcharts": "^2.1.0",
     "react-dom": "^19.2.4",
     "zustand": "^5.0.12"
   },

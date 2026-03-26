@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { usePetStore } from './store/usePetStore'
-import { Wallet, Target, Sparkles, Plus, Minus, Trash2, Edit2, X, Menu, User, Calendar, LogOut } from 'lucide-react'
+import { Wallet, Target, Sparkles, Plus, Minus, Trash2, Edit2, X, Menu, User, Calendar, LogOut, TrendingUp, TrendingDown } from 'lucide-react'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
+import Chart from 'react-apexcharts'
 import './App.css'
 
 function App() {
@@ -254,23 +255,60 @@ function App() {
         </div>
       </div>
 
-      {/* 2. MÉTRICAS GLOBALES VERTICALES */}
-      <div className="summary-list">
-        <div className="summary-row">
-          <span className="summary-label">Ingresos del Mes</span>
-          <span className="summary-value text-green">+ ${pet.income.toLocaleString('es-CO')}</span>
+      {/* 2. MÉTRICAS GLOBALES (ESTILO BERRY) */}
+      <div className="summary-grid">
+        <div className="berry-card green">
+          <div className="berry-card-label">Ingresos del Mes</div>
+          <div className="berry-card-value">${pet.income.toLocaleString('es-CO')}</div>
+          <div className="berry-card-sub"><TrendingUp size={14}/> Mis entradas</div>
         </div>
-        <div className="summary-row" style={{cursor: 'pointer'}} onClick={() => { fetchExpensesHistory(current_user.user_id); setExpensesModalOpen(true); }} title="Ver Historial">
-          <span className="summary-label">Gastos Totales 🔍</span>
-          <span className="summary-value text-red">- ${pet.general_current_spent.toLocaleString('es-CO')}</span>
+
+        <div className="berry-card blue" onClick={() => { fetchExpensesHistory(current_user.user_id); setExpensesModalOpen(true); }} style={{cursor: 'pointer'}}>
+          <div className="berry-card-label">Gastos Totales (Mes)</div>
+          <div className="berry-card-value">${pet.general_current_spent.toLocaleString('es-CO')}</div>
+          <div className="berry-card-sub"><TrendingDown size={14}/> Ver historial detallado</div>
         </div>
-        <div className="summary-row">
-          <span className="summary-label">Ahorros Destinados</span>
-          <span className="summary-value text-purple">~ ${pet.savings.toLocaleString('es-CO')}</span>
+
+        <div className="berry-card purple">
+          <div className="berry-card-label">Ahorros Acumulados</div>
+          <div className="berry-card-value">${pet.savings.toLocaleString('es-CO')}</div>
+          <div className="berry-card-sub"><Sparkles size={14}/> Tu meta de ahorro</div>
         </div>
       </div>
 
-      {/* 3. SECCIÓN DE PRESUPUESTOS (CON BOTONES INDIVIDUALES) */}
+      {/* 3. GRÁFICA DE GASTOS (INSPIRACIÓN BERRY) */}
+      <div className="budgets-section" style={{paddingBottom: '0'}}>
+         <h3 className="section-title">Análisis de Gastos</h3>
+         <div className="finance-card" style={{padding: '10px'}}>
+            <Chart 
+              options={{
+                chart: { id: 'spending-chart', toolbar: { show: false }, zoom: { enabled: false } },
+                colors: ['#0396FF'],
+                stroke: { curve: 'smooth', width: 3 },
+                xaxis: { 
+                  categories: expensesHistory?.length > 0 
+                    ? expensesHistory.slice(-7).map(e => new Date(e.date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })) 
+                    : ['Hoy'],
+                  labels: { style: { colors: '#64748b', fontSize: '10px' } } 
+                },
+                yaxis: { show: false },
+                grid: { borderColor: '#f1f5f9' },
+                dataLabels: { enabled: false },
+                tooltip: { theme: 'light' }
+              }}
+              series={[{
+                name: 'Gasto',
+                data: expensesHistory?.length > 0 
+                  ? expensesHistory.slice(-7).map(e => e.amount) 
+                  : [0]
+              }]}
+              type="area"
+              height={180}
+            />
+         </div>
+      </div>
+
+      {/* 4. SECCIÓN DE PRESUPUESTOS (CON BOTONES INDIVIDUALES) */}
       <div className="budgets-section">
         <h3 className="section-title">Mis Presupuestos</h3>
         

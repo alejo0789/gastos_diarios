@@ -126,44 +126,70 @@ body {
 .health-bar-fill { height: 100%; transition: width 0.5s ease; }
 .health-text { font-size: 0.8rem; color: var(--text-muted); font-weight: 500;}
 
-/* MÉTRICAS GLOBALES VERTICALES */
-.summary-list {
-  display: flex;
-  flex-direction: column;
-  padding: 0 1.5rem 1.5rem 1.5rem;
+/* MÉTRICAS GLOBALES GRID (ESTILO BERRY) */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding: 0 1.5rem 1rem 1.5rem;
   gap: 12px;
 }
 
-.summary-row {
+.berry-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.5rem;
+  border-radius: 24px;
+  color: white;
+  box-shadow: 0 10px 30px -5px rgba(0,0,0,0.15);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--card-bg);
-  padding: 14px 16px;
-  border-radius: 16px;
-  box-shadow: var(--shadow-soft);
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.2s;
 }
 
-.summary-label {
-  font-size: 0.95rem;
-  color: var(--text-muted);
-  font-weight: 500;
+.berry-card:active { transform: scale(0.98); }
+
+.berry-card.blue { background: #0396FF; }
+.berry-card.purple { background: #8E2DE2; background: linear-gradient(135deg, #8E2DE2, #4A00E0); }
+.berry-card.green { background: #00B09B; background: linear-gradient(135deg, #00B09B, #96C93D); }
+
+/* Círculos decorativos Berry */
+.berry-card::after {
+  content: "";
+  position: absolute;
+  width: 210px; height: 210px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  top: -85px; right: -95px;
+  z-index: 1;
 }
 
-.summary-value {
-  font-size: 1.1rem;
-  font-weight: 700;
+.berry-card::before {
+  content: "";
+  position: absolute;
+  width: 210px; height: 210px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  top: -125px; right: -15px;
+  z-index: 1;
 }
+
+.berry-card > * { position: relative; z-index: 2; }
+
+.berry-card-label { font-size: 0.9rem; opacity: 0.9; font-weight: 500; }
+.berry-card-value { font-size: 1.8rem; font-weight: 700; }
+.berry-card-sub { font-size: 0.75rem; opacity: 0.8; }
 
 /* SECCIÓN PRESUPUESTOS */
 .budgets-section { padding: 0 1.5rem 2rem 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; }
-.section-title { font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-top: 0.5rem; margin-bottom: 0.2rem; }
+.section-title { font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin-top: 1rem; margin-bottom: 0.5rem; }
 
 .finance-card {
   background: var(--card-bg);
-  padding: 1.2rem;
+  padding: 1.5rem;
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(0,0,0,0.03);
 }
 
 .card-header-row { display: flex; align-items: center; gap: 10px; margin-bottom: 0.8rem; }
