@@ -34,6 +34,8 @@ function App() {
   const [authPhone, setAuthPhone] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authName, setAuthName] = useState("");
+  
+  const [filterDays, setFilterDays] = useState(30);
 
   useEffect(() => {
     if (current_user) {
@@ -427,35 +429,97 @@ function App() {
 
       </div>
 
-      {/* MODAL HISTORIAL DE GASTOS */}
+      {/* MODAL HISTORIAL DE GASTOS (NUEVA TABLA CON FILTROS) */}
       {expensesModalOpen && (
         <div className="modal-overlay" onClick={() => setExpensesModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '85vh' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '85vh', width: '95%', maxWidth: '450px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Historial de Gastos</h3>
-                <p className="text-muted text-sm m-0">Tus movimientos más recientes.</p>
+                <h3 style={{ margin: '0 0 4px 0', color: 'var(--text-main)', fontSize: '1.2rem' }}>Movimientos</h3>
+                <p className="text-muted text-sm m-0">Historial detallado de tus consumos.</p>
               </div>
               <button className="btn-icon-tiny" onClick={() => setExpensesModalOpen(false)}>
                 <X size={20} className="text-muted hover-danger" />
               </button>
             </div>
+
+            {/* Selector de Filtros */}
+            <div className="filter-tabs">
+              {[7, 15, 30].map(days => (
+                <button 
+                  key={days}
+                  className={`filter-tab ${filterDays === days ? 'active' : ''}`}
+                  onClick={() => setFilterDays(days)}
+                >
+                  {days === 30 ? 'Mes' : `${days} días`}
+                </button>
+              ))}
+              <button 
+                className={`filter-tab ${filterDays === 999 ? 'active' : ''}`}
+                onClick={() => setFilterDays(999)}
+              >
+                Todo
+              </button>
+            </div>
             
-            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
-              {(!expensesHistory || expensesHistory.length === 0) ? (
-                 <p className="text-center text-muted text-sm mt-4">No tienes gastos registrados aún.</p>
-              ) : (
-                 expensesHistory.map(exp => (
-                   <div key={exp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.03)' }}>
-                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)', textTransform: 'capitalize' }}>{exp.category}</span>
-                        {exp.description && <span style={{ fontSize: '13px', color: '#475569' }}>{exp.description}</span>}
-                        <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{new Date(exp.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                     </div>
-                     <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--danger)' }}>-${exp.amount.toLocaleString('es-CO')}</span>
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+              <div className="expense-table-header" style={{ display: 'flex', padding: '10px 16px', borderBottom: '2px solid #f1f5f9', fontSize: '12px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <span style={{ flex: 1 }}>Concepto / Fecha</span>
+                <span style={{ width: '90px', textAlign: 'right' }}>Monto</span>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {(!expensesHistory || expensesHistory.length === 0) ? (
+                   <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                      <div style={{ opacity: 0.3, marginBottom: '10px' }}><Wallet size={40} style={{ margin: '0 auto' }} /></div>
+                      <p className="text-muted text-sm">No hay gastos en este periodo.</p>
                    </div>
-                 ))
-              )}
+                ) : (
+                   expensesHistory
+                    .filter(exp => {
+                      if (filterDays === 999) return true;
+                      const expDate = new Date(exp.date);
+                      const now = new Date();
+                      const diffTime = Math.abs(now - expDate);
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      return diffDays <= filterDays;
+                    })
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .map(exp => (
+                      <div key={exp.id} className="expense-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f8fafc' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden' }}>
+                           <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                             {exp.description || exp.category.replace('_', ' ')}
+                           </span>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                             <span className="badge" style={{ padding: '2px 6px', fontSize: '10px', background: '#f1f5f9', color: '#64748b' }}>{exp.category}</span>
+                             <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(exp.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })}</span>
+                           </div>
+                        </div>
+                        <div style={{ width: '100px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--danger)' }}>-${exp.amount.toLocaleString('es-CO')}</span>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 'auto', padding: '12px', background: '#f8fafc', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>TOTAL PERIODO</span>
+               <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-main)' }}>
+                 ${expensesHistory
+                    ?.filter(exp => {
+                      if (filterDays === 999) return true;
+                      const expDate = new Date(exp.date);
+                      const now = new Date();
+                      const diffTime = Math.abs(now - expDate);
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      return diffDays <= filterDays;
+                    })
+                    .reduce((acc, curr) => acc + curr.amount, 0)
+                    .toLocaleString('es-CO')}
+               </span>
             </div>
           </div>
         </div>
