@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import crud
 import httpx
+import models
 
 router = APIRouter(prefix="/webhook/whatsapp", tags=["whatsapp"])
 
@@ -45,7 +46,14 @@ async def receive_n8n_data(payload: N8nPayload, db: Session = Depends(get_db)):
     Este webhook es llamado por N8N después de que su IA
     analizó el mensaje de WhatsApp.
     """
-    user = crud.get_or_create_user(db, phone_number=payload.phone_number, name=payload.sender_name)
+    phone_raw = payload.phone_number
+    # Si el número viene con el código de país de Colombia (57) y tiene 12 dígitos, lo normalizamos a 10
+    if len(phone_raw) == 12 and phone_raw.startswith("57"):
+        phone_normalized = phone_raw[2:]
+    else:
+        phone_normalized = phone_raw
+        
+    user = crud.get_or_create_user(db, phone_number=phone_normalized, name=payload.sender_name)
     
     # 0. Si el LLM solo está charlando o pide aclaración porque faltan datos
     if payload.type == "chat" or payload.amount is None:
