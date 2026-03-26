@@ -84,8 +84,7 @@ async def receive_n8n_data(payload: N8nPayload, db: Session = Depends(get_db)):
             expense_amount=payload.amount,
             expense_category=payload.category
         )
-        reply = f"✅ Registrado gasto de ${payload.amount} en {payload.category}.\n"
-        reply += f"Tu alcancía '{updated_pet.name}' tiene {updated_pet.health}❤️ y {updated_pet.xp}⭐ de XP."
+        reply = payload.message if payload.message else f"✅ Registrado gasto de ${payload.amount} en {payload.category}."
         return {"status": "success", "reply": reply}
 
     # 2. Lógica si es Ingreso general
@@ -93,7 +92,8 @@ async def receive_n8n_data(payload: N8nPayload, db: Session = Depends(get_db)):
         db_income = models.Income(user_id=user.id, amount=payload.amount, description=payload.description)
         db.add(db_income)
         db.commit()
-        return {"status": "success", "reply": f"¡Genial! Ingreso de ${payload.amount} registrado en tu Billeterín seguro."}
+        reply = payload.message if payload.message else f"¡Genial! Ingreso de ${payload.amount} registrado en tu Billeterín seguro."
+        return {"status": "success", "reply": reply}
 
     # 3. Lógica si es Ahorro para una Meta / Viaje
     elif payload.type == "goal_contribution":
@@ -118,12 +118,26 @@ async def receive_n8n_data(payload: N8nPayload, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(t)
             
-            reply = f"🎯 ¡Excelente hábito! Acabo de sumar ${payload.amount} a tu meta oficial: '{goal.name}'.\n"
-            reply += f"¡A tu alcancía le enorgullece verte ahorrar! 🐽💖 (Ganó 25 XP, Total nivelando: {t.xp}⭐)"
+            reply = payload.message if payload.message else f"🎯 ¡Excelente hábito! Acabo de sumar ${payload.amount} a tu meta oficial: '{goal.name}'.\n¡A tu alcancía le enorgullece verte ahorrar! 🐽💖 (Ganó 25 XP, Total nivelando: {t.xp}⭐)"
             return {"status": "success", "reply": reply}
         else:
-            # Validar si el agente inventó un nombre o si fue mal ingresado
-            reply = f"🔎 Ups.. no encontré ninguna meta o presupuesto llamado '{nombre_meta}' en tu cuenta."
+            # Si no encontró la meta, loguearlo como ahorro general
+            crud.create_expense(
+                db=db, 
+                user_id=user.id, 
+                amount=payload.amount, 
+                category="Ahorro",
+                description=payload.description if payload.description else "Ahorro General",
+                shared_goal_id=None
+            )
+            
+            t = user.tamagotchi
+            t.xp += 15
+            t.happiness = min(100, t.happiness + 5)
+            db.commit()
+            db.refresh(t)
+            
+            reply = payload.message if payload.message else f"🎯 ¡Excelente hábito! Acabo de sumar ${payload.amount} a tus ahorros generales.\n¡A tu alcancía le encanta esta iniciativa! (Ganó 15 XP)"
             return {"status": "success", "reply": reply}
 
     return {"status": "ignored"}

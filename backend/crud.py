@@ -56,18 +56,23 @@ def update_tamagotchi_health(db: Session, tamagotchi_id: int, user_id: int, expe
         models.Budget.category == "General" # Para el MVP simplificamos a General
     ).first()
     
-    # 2. Sumar todos los gastos de este mes del usuario
+    # 2. Sumar todos los gastos de este mes del usuario (ignorando ahorros)
     total_spent_query = db.query(func.sum(models.Expense.amount)).filter(
         models.Expense.user_id == user_id,
         func.extract('month', models.Expense.date) == current_month,
-        func.extract('year', models.Expense.date) == current_year
+        func.extract('year', models.Expense.date) == current_year,
+        ~models.Expense.category.ilike('%ahorro%')
     ).scalar()
     
     total_spent = total_spent_query or 0.0
     
     # 3. Matemática de Daño / Recompensa (Algoritmo Tamagotchi)
     damage = 0
-    if budget and budget.limit_amount > 0:
+    if "ahorro" in expense_category.lower():
+        # Ahorro nunca causa daño, siempre beneficia a la mascota
+        t.xp += 15
+        t.happiness = min(100, t.happiness + 5)
+    elif budget and budget.limit_amount > 0:
         if total_spent > budget.limit_amount:
             # Castigo por excederse: daño base + escalar por el exceso
             over_budget = total_spent - budget.limit_amount
