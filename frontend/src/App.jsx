@@ -1,13 +1,14 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePetStore } from './store/usePetStore'
 import { Wallet, Target, Sparkles, Plus, Minus, Trash2, Edit2, X, Menu, User, Calendar, LogOut } from 'lucide-react'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import './App.css'
 
 function App() {
-  const { pet, current_user, simulateExpense, simulateIncome, manageBudget, updateGeneralBudget } = usePetStore();
+  const { pet, current_user, simulateExpense, simulateIncome, manageBudget, updateGeneralBudget, expensesHistory, fetchExpensesHistory } = usePetStore();
   const isSad = pet.health <= 50;
 
+  const [expensesModalOpen, setExpensesModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState(null);
@@ -259,8 +260,8 @@ function App() {
           <span className="summary-label">Ingresos del Mes</span>
           <span className="summary-value text-green">+ ${pet.income.toLocaleString('es-CO')}</span>
         </div>
-        <div className="summary-row">
-          <span className="summary-label">Gastos Totales</span>
+        <div className="summary-row" style={{cursor: 'pointer'}} onClick={() => { fetchExpensesHistory(current_user.user_id); setExpensesModalOpen(true); }} title="Ver Historial">
+          <span className="summary-label">Gastos Totales 🔍</span>
           <span className="summary-value text-red">- ${pet.general_current_spent.toLocaleString('es-CO')}</span>
         </div>
         <div className="summary-row">
@@ -387,6 +388,40 @@ function App() {
         ))}
 
       </div>
+
+      {/* MODAL HISTORIAL DE GASTOS */}
+      {expensesModalOpen && (
+        <div className="modal-overlay" onClick={() => setExpensesModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '85vh' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-main)' }}>Historial de Gastos</h3>
+                <p className="text-muted text-sm m-0">Tus movimientos más recientes.</p>
+              </div>
+              <button className="btn-icon-tiny" onClick={() => setExpensesModalOpen(false)}>
+                <X size={20} className="text-muted hover-danger" />
+              </button>
+            </div>
+            
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+              {(!expensesHistory || expensesHistory.length === 0) ? (
+                 <p className="text-center text-muted text-sm mt-4">No tienes gastos registrados aún.</p>
+              ) : (
+                 expensesHistory.map(exp => (
+                   <div key={exp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.03)' }}>
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)', textTransform: 'capitalize' }}>{exp.category}</span>
+                        {exp.description && <span style={{ fontSize: '13px', color: '#475569' }}>{exp.description}</span>}
+                        <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{new Date(exp.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                     </div>
+                     <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--danger)' }}>-${exp.amount.toLocaleString('es-CO')}</span>
+                   </div>
+                 ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL CREAR META (GLASSMORPHISM) */}
       {createModalOpen && (

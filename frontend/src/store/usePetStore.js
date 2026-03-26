@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand'
+import { create } from 'zustand'
 
 export const usePetStore = create((set, get) => ({
   current_user: JSON.parse(localStorage.getItem("tamagotchi_user")) || null,
@@ -30,11 +30,23 @@ export const usePetStore = create((set, get) => ({
     fixed_expenses: []
   },
   
+  expensesHistory: [],
+  
   setPetData: (data) => set({ pet: data }),
   
   updateGeneralBudget: (limit) => set((state) => ({
       pet: { ...state.pet, general_budget_limit: limit }
   })),
+
+  fetchExpensesHistory: async (userId = 1) => {
+    try {
+      const res = await fetch(`https://gastosdiariosbackend-production.up.railway.app/api/budgets/expenses/${userId}`);
+      if(res.ok) {
+         const data = await res.json();
+         set({ expensesHistory: data });
+      }
+    } catch(e) {}
+  },
 
   fetchFixedExpenses: async (userId = 1) => {
     try {

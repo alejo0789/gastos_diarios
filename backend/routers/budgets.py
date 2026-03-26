@@ -241,3 +241,13 @@ def update_budget_limit(user_id: int, data: BudgetLimitUpdate, db: Session = Dep
         db.add(budget)
     db.commit()
     return {"message": "Success"}
+
+@router.get("/expenses/{user_id}")
+def get_user_expenses(user_id: int, db: Session = Depends(get_db)):
+    expenses = db.query(models.Expense).filter(
+        models.Expense.user_id == user_id,
+        models.Expense.shared_goal_id == None,
+        ~models.Expense.category.ilike('%ahorro%')
+    ).order_by(models.Expense.date.desc()).all()
+    
+    return expenses
